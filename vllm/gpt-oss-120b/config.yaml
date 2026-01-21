@@ -1,0 +1,19 @@
+runs:
+  - name: "gpt-oss-120b-run1"
+    model_path: "/root/gfs/01be5b33/gpt-oss-120b-malaysian"
+    port: 8000
+    output_dir: "./benchmark_results"
+    tp_dp_pairs:
+      - tp: 8
+        dp: 1
+        pp: 1
+      - tp: 2
+        dp: 4
+        pp: 1
+      - tp: 4
+        dp: 2
+        pp: 1
+    context_size: [1024, 2048, 4096, 8192]
+    concurrency: [100]
+    num_prompts: [100]
+    output_len: [128]
