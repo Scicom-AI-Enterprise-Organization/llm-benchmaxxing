@@ -119,10 +119,31 @@ def run_benchmark(model_path, port, output_dir, result_name, ctx, output_len, nu
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-c", "--config", default="config.yaml")
+    parser.add_argument("-c", "--config", required=True, help="Config file name (looked up in runs/ folder) or full path")
     args = parser.parse_args()
 
-    with open(args.config) as f:
+    # Resolve config path - check runs/ folder first, then treat as direct path
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    runs_dir = os.path.join(script_dir, "runs")
+    
+    config_path = args.config
+    # Try multiple resolution strategies for relative paths
+    if not os.path.isabs(config_path) and not os.path.exists(config_path):
+        # 1. Try relative to script directory (e.g., runs/config.yaml)
+        script_relative = os.path.join(script_dir, config_path)
+        # 2. Try in runs/ folder (e.g., just config.yaml or config)
+        runs_path = os.path.join(runs_dir, config_path)
+        runs_path_yaml = runs_path + '.yaml'
+        
+        if os.path.exists(script_relative):
+            config_path = script_relative
+        elif os.path.exists(runs_path):
+            config_path = runs_path
+        elif not config_path.endswith(('.yaml', '.yml')) and os.path.exists(runs_path_yaml):
+            config_path = runs_path_yaml
+
+    print(f"Using config: {config_path}")
+    with open(config_path) as f:
         config = yaml.safe_load(f)
 
     for run in config.get("runs", []):
