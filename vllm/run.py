@@ -12,13 +12,24 @@ import yaml
 
 
 class VLLMServer:
-    def __init__(self, model_path, port, tp, dp, pp, gpu_memory_utilization=0.9):
+    def __init__(self, model_path, port, tp, dp, pp, 
+                 gpu_memory_utilization=0.9,
+                 max_model_len=None,
+                 max_num_seqs=None,
+                 dtype=None,
+                 disable_log_requests=False,
+                 enable_expert_parallel=False):
         self.model_path = model_path
         self.port = port
         self.tp = tp
         self.dp = dp
         self.pp = pp
         self.gpu_memory_utilization = gpu_memory_utilization
+        self.max_model_len = max_model_len
+        self.max_num_seqs = max_num_seqs
+        self.dtype = dtype
+        self.disable_log_requests = disable_log_requests
+        self.enable_expert_parallel = enable_expert_parallel
         self.process = None
         self.base_url = f"http://localhost:{port}"
 
@@ -34,6 +45,18 @@ class VLLMServer:
         # data parallelism via num replicas if dp > 1
         if self.dp > 1:
             cmd.extend(["--data-parallel-size", str(self.dp)])
+        
+        # optional arguments
+        if self.max_model_len:
+            cmd.extend(["--max-model-len", str(self.max_model_len)])
+        if self.max_num_seqs:
+            cmd.extend(["--max-num-seqs", str(self.max_num_seqs)])
+        if self.dtype:
+            cmd.extend(["--dtype", self.dtype])
+        if self.disable_log_requests:
+            cmd.append("--disable-log-requests")
+        if self.enable_expert_parallel:
+            cmd.append("--enable-expert-parallel")
 
         print(f"Starting vLLM server: {' '.join(cmd)}")
         self.process = subprocess.Popen(cmd, text=True)
@@ -148,17 +171,35 @@ def main():
 
     for run in config.get("runs", []):
         name = run.get("name", "")
-        model_path = run.get("model_path", "")
-        port = run.get("port", 8000)
-        output_dir = run.get("output_dir", "./benchmark_results")
-        gpu_memory_utilization = run.get("gpu_memory_utilization", 0.9)
+        
+        # Support nested structure (serve/bench) or flat structure
+        serve_cfg = run.get("serve", run)  # fallback to run itself for flat config
+        bench_cfg = run.get("bench", run)  # fallback to run itself for flat config
+        
+        # Server options
+        model_path = serve_cfg.get("model_path", "")
+        port = serve_cfg.get("port", 8000)
+        gpu_memory_utilization = serve_cfg.get("gpu_memory_utilization", 0.9)
+        max_model_len = serve_cfg.get("max_model_len")
+        max_num_seqs = serve_cfg.get("max_num_seqs")
+        dtype = serve_cfg.get("dtype")
+        disable_log_requests = serve_cfg.get("disable_log_requests", False)
+        enable_expert_parallel = serve_cfg.get("enable_expert_parallel", False)
+        tp_dp_pairs = serve_cfg.get("tp_dp_pairs", [])
+        
+        # Benchmark options
+        output_dir = bench_cfg.get("output_dir", "./benchmark_results")
+        context_sizes = bench_cfg.get("context_size", [])
+        concurrencies = bench_cfg.get("concurrency", [])
+        num_prompts_list = bench_cfg.get("num_prompts", [])
+        output_lens = bench_cfg.get("output_len", [])
 
         if not name or not model_path:
             continue
 
         os.makedirs(output_dir, exist_ok=True)
 
-        for pair in run.get("tp_dp_pairs", []):
+        for pair in tp_dp_pairs:
             tp = pair.get("tp", 1)
             dp = pair.get("dp", 1)
             pp = pair.get("pp", 1)
@@ -168,11 +209,19 @@ def main():
             print(f"STARTING SERVER: {name} | TP={tp} DP={dp} PP={pp}")
             print("=" * 64)
 
-            with VLLMServer(model_path, port, tp, dp, pp, gpu_memory_utilization) as server:
-                for ctx in run.get("context_size", []):
-                    for concurrency in run.get("concurrency", []):
-                        for num_prompts in run.get("num_prompts", []):
-                            for output_len in run.get("output_len", []):
+            with VLLMServer(
+                model_path, port, tp, dp, pp,
+                gpu_memory_utilization=gpu_memory_utilization,
+                max_model_len=max_model_len,
+                max_num_seqs=max_num_seqs,
+                dtype=dtype,
+                disable_log_requests=disable_log_requests,
+                enable_expert_parallel=enable_expert_parallel
+            ) as server:
+                for ctx in context_sizes:
+                    for concurrency in concurrencies:
+                        for num_prompts in num_prompts_list:
+                            for output_len in output_lens:
                                 result_name = f"{name}_TP{tp}_DP{dp}_CTX{ctx}_C{concurrency}_P{num_prompts}_O{output_len}"
                                 run_benchmark(
                                     model_path, port, output_dir, result_name,

@@ -1,15 +1,21 @@
 runs:
   - name: ""
-    model_path: ""
-    port: 8000
-    output_dir: ""
-    tp_dp_pairs:
-      - tp: 0
-        dp: 0
-        pp: 0
-    context_size: []
-    concurrency: [
-      
-    ]
-    num_prompts: []
-    output_len: []
+    serve:
+      model_path: ""
+      port: 8000
+      gpu_memory_utilization: 0.9
+      max_model_len: 12000
+      max_num_seqs: 256
+      dtype: "bfloat16"
+      disable_log_requests: true
+      enable_expert_parallel: false
+      tp_dp_pairs:
+        - tp: 4
+          dp: 1
+          pp: 1
+    bench:
+      output_dir: "./benchmark_results"
+      context_size: []
+      concurrency: []
+      num_prompts: []
+      output_len: []
