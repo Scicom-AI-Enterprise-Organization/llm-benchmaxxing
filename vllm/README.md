@@ -40,6 +40,7 @@ vllm/
 
 | Option | Type | Description |
 |--------|------|-------------|
+| `save_results` | bool | Save results to JSON files (default: false) |
 | `output_dir` | string | Directory to save benchmark results |
 | `context_size` | list[int] | Input context sizes to test |
 | `concurrency` | list[int] | Concurrency levels to test |
@@ -66,6 +67,7 @@ runs:
           dp: 1
           pp: 1
     bench:
+      save_results: false
       output_dir: "./benchmark_results"
       context_size: [512, 1024, 2048]
       concurrency: [50, 100]
@@ -75,7 +77,7 @@ runs:
 
 ## Output
 
-Benchmark results are saved as JSON files in `output_dir`:
+When `save_results: true`, benchmark results are saved as JSON files in `output_dir`:
 
 ```
 benchmark_results/

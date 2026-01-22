@@ -2,3 +2,6 @@ pyyaml
 requests
 vllm==0.11.0
 huggingface_hub[cli]
+cloudpickle
+paramiko
+pyremote @ git+https://github.com/Scicom-AI-Enterprise-Organization/pyremote

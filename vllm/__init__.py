@@ -29,11 +29,13 @@ def run(config: dict):
         concurrencies = bench_cfg.get("concurrency", [])
         num_prompts_list = bench_cfg.get("num_prompts", [])
         output_lens = bench_cfg.get("output_len", [])
+        save_results = bench_cfg.get("save_results", False)
 
         if not name or not model_path:
             continue
 
-        os.makedirs(output_dir, exist_ok=True)
+        if save_results:
+            os.makedirs(output_dir, exist_ok=True)
 
         for pair in tp_dp_pairs:
             tp = pair.get("tp", 1)
@@ -61,7 +63,8 @@ def run(config: dict):
                                 result_name = f"{name}_TP{tp}_DP{dp}_CTX{ctx}_C{concurrency}_P{num_prompts}_O{output_len}"
                                 run_benchmark(
                                     model_path, port, output_dir, result_name,
-                                    ctx, output_len, num_prompts, concurrency
+                                    ctx, output_len, num_prompts, concurrency,
+                                    save_results=save_results
                                 )
 
             time.sleep(5)
