@@ -1,7 +1,6 @@
 runs:
   - name: ""
     engine: "vllm"
-    config_path: ""
     serve:
       model_path: ""
       port: <int>

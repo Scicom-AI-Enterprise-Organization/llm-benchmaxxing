@@ -32,8 +32,7 @@ hf download huggingface_model_path \
 ```yaml
 runs:
   - name: "run name"
-    engine: "vllm"  # (vllm|sglang|tensorrt)
-    config_path: "/path/to/this/config.yaml"
+    engine: "vllm"
     serve:
       model_path: "/model/path"
       port: 8000
@@ -70,6 +69,9 @@ runs:
 
 ```bash
 # run benchmark
-uv run python run.py
+uv run python run.py <path/to/config.yaml>
+
+# example
+uv run python run.py config/my-benchmark.yaml
 ```
 

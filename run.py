@@ -13,40 +13,27 @@ import yaml
 
 
 SUPPORTED_ENGINES = ["vllm"]
-CONFIG_FILE = "config.yaml"
 
 
 def main():
-    # Read base config
-    if not os.path.exists(CONFIG_FILE):
-        print(f"Error: {CONFIG_FILE} not found in current directory")
-        print(f"Create a {CONFIG_FILE} with your benchmark configuration")
+    if len(sys.argv) < 2:
+        print("Usage: python run.py <config.yaml>")
+        print("Example: python run.py config/my-benchmark.yaml")
         sys.exit(1)
 
-    with open(CONFIG_FILE) as f:
-        base_config = yaml.safe_load(f)
+    config_path = sys.argv[1]
 
-    # Get config_path from base config (or use base config directly)
-    config_path = base_config.get("config_path")
-    
-    if config_path:
-        # Load actual config from config_path
-        if not os.path.isabs(config_path):
-            config_path = os.path.abspath(config_path)
-        
-        if not os.path.exists(config_path):
-            print(f"Error: Config file not found: {config_path}")
-            sys.exit(1)
-        
-        print(f"Loading config: {config_path}")
-        with open(config_path) as f:
-            config = yaml.safe_load(f)
-        base_path = os.path.dirname(config_path)
-    else:
-        # Use base config directly
-        config = base_config
-        base_path = os.getcwd()
-        print(f"Loading config: {CONFIG_FILE}")
+    # Resolve config path
+    if not os.path.isabs(config_path):
+        config_path = os.path.abspath(config_path)
+
+    if not os.path.exists(config_path):
+        print(f"Error: Config file not found: {config_path}")
+        sys.exit(1)
+
+    print(f"Loading config: {config_path}")
+    with open(config_path) as f:
+        config = yaml.safe_load(f)
 
     runs = config.get("runs", [])
     if not runs:
@@ -67,7 +54,7 @@ def main():
 
     # Import and run the engine module
     engine_module = importlib.import_module(engine)
-    engine_module.run(config, base_path=base_path)
+    engine_module.run(config)
 
 
 if __name__ == "__main__":

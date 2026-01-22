@@ -52,7 +52,6 @@ vllm/
 runs:
   - name: "my-benchmark"
     engine: "vllm"
-    config_path: "/path/to/this/config.yaml"
     serve:
       model_path: "meta-llama/Llama-2-7b-hf"
       port: 8000

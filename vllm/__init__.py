@@ -4,11 +4,10 @@ import time
 from .core import VLLMServer, run_benchmark
 
 
-def run(config: dict, base_path: str = "."):
+def run(config: dict):
     """Run vLLM benchmarks based on config."""
     for run_cfg in config.get("runs", []):
         name = run_cfg.get("name", "")
-        config_path = run_cfg.get("config_path", "")
 
         serve_cfg = run_cfg.get("serve", run_cfg)
         bench_cfg = run_cfg.get("bench", run_cfg)
@@ -44,8 +43,6 @@ def run(config: dict, base_path: str = "."):
             print()
             print("=" * 64)
             print(f"RUN: {name} | TP={tp} DP={dp} PP={pp}")
-            if config_path:
-                print(f"CONFIG: {config_path}")
             print("=" * 64)
 
             with VLLMServer(
