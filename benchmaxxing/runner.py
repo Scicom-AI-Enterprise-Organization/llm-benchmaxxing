@@ -262,14 +262,8 @@ def run_remote(config: dict, remote_cfg: dict):
     print("=" * 64)
 
 
-def main():
-    if len(sys.argv) < 2:
-        print("Usage: python run.py <config.yaml>")
-        print("Example: python run.py config/my-benchmark.yaml")
-        sys.exit(1)
-
-    config_path = sys.argv[1]
-
+def run(config_path: str):
+    """Main entry point for running benchmarks."""
     if not os.path.isabs(config_path):
         config_path = os.path.abspath(config_path)
 
@@ -303,9 +297,15 @@ def main():
         print("=" * 64)
         run_remote(config, remote_cfg)
     else:
-        engine_module = importlib.import_module(engine)
+        # Import from benchmaxxing.vllm instead of vllm
+        engine_module = importlib.import_module(f"benchmaxxing.{engine}")
         engine_module.run(config)
 
 
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) < 2:
+        print("Usage: python -m benchmaxxing.runner <config.yaml>")
+        print("Example: python -m benchmaxxing.runner examples/run_single.yaml")
+        sys.exit(1)
+    
+    run(sys.argv[1])

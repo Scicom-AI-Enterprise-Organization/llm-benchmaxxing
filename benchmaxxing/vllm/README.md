@@ -13,7 +13,7 @@ Benchmarking module for [vLLM](https://github.com/vllm-project/vllm) inference s
 ## Module Structure
 
 ```
-vllm/
+benchmaxxing/vllm/
 ├── __init__.py         # Entry point - run(config) function
 └── core/
     ├── server.py       # VLLMServer class (start/stop/health check)

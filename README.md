@@ -1,14 +1,16 @@
-# LLM Benchmaxxing
+# Benchmaxxing
 
 Seamless scripts for LLM performance benchmaxxing.
 
 ## Supported Engines
 
-- [x] [vLLM](./vllm/) - vLLM inference server
+- [x] [vLLM](./benchmaxxing/vllm/) - vLLM inference server
 - [ ] TensorRT-LLM - *(coming soon)*
 - [ ] SGLang - *(coming soon)*
 
-## Quick Start
+## Usage
+
+### Installation
 
 ```bash
 # Install uv
@@ -18,17 +20,36 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 uv venv --python 3.11
 source .venv/bin/activate
 
-# Install dependencies (from root)
-uv pip install -r requirements.txt
+```
+
+### Running Remotely
+
+```bash
+# Install base package
+uv pip install git+https://github.com/Scicom-AI-Enterprise-Organization/llm-benchmark.git
+
+# Run benchmark on remote GPU server
+benchmaxxing examples/remote_gpu.yaml
+```
+
+### Running on GPU Server
+
+```bash
+# Install with vllm
+uv pip install "benchmaxxing[vllm] @ git+https://github.com/Scicom-AI-Enterprise-Organization/llm-benchmark.git"
 
 # Download model
-hf download huggingface_model_path \
---local-dir /download/dir
+huggingface-cli download <huggingface_model_path> \
+  --local-dir /download/dir
+
+# Run benchmark locally
+benchmaxxing examples/run_single.yaml
 ```
 
 ## Config Format Examples
 
-### vLLM Benhmarking config format
+### vLLM Benchmarking config format
+
 ```yaml
 runs:
   - name: "run name"
@@ -54,29 +75,20 @@ runs:
       num_prompts: [100]
       output_len: [128]
 ```
-### SGLang Benhmarking config format
+
+### SGLang Benchmarking config format
+
 ```bash
 # coming soon
 ```
 
-### TensorRT-LLM Benhmarking config format
+### TensorRT-LLM Benchmarking config format
+
 ```bash
 # coming soon
 ```
 
-
-
-## Usage
-
-```bash
-# run benchmark
-uv run python run.py <path/to/config.yaml>
-
-# example
-uv run python run.py examples/run_single.yaml
-```
-
-## Remote Execution
+### Remote Execution
 
 Run benchmarks on remote GPU servers locally. Add a `remote` section to your config:
 
@@ -99,5 +111,4 @@ runs:
     engine: "vllm"
     # ... rest of config
 ```
-
 See [examples/](./examples/) for more config samples.
