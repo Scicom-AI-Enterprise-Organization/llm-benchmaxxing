@@ -10,11 +10,13 @@ def load_config(config_path: str) -> dict:
     with open(config_path) as f:
         raw = yaml.safe_load(f)
     
-    pod = raw.get("pod", {})
-    container = raw.get("container", {})
-    storage = raw.get("storage", {})
-    ports_cfg = raw.get("ports", {})
-    env = raw.get("env", {})
+    runpod_cfg = raw.get("runpod", raw)
+    
+    pod = runpod_cfg.get("pod", {})
+    container = runpod_cfg.get("container", {})
+    storage = runpod_cfg.get("storage", {})
+    ports_cfg = runpod_cfg.get("ports", {})
+    env = runpod_cfg.get("env", {})
     
     ports = []
     for p in ports_cfg.get("http", []):
@@ -25,10 +27,10 @@ def load_config(config_path: str) -> dict:
     instance_type = pod.get("instance_type", "spot")
     spot = instance_type == "spot"
     
-    ssh_key_path = raw.get("ssh_key")
+    ssh_key_path = runpod_cfg.get("ssh_key")
     
     return {
-        "api_key": raw.get("api_key"),
+        "api_key": runpod_cfg.get("api_key"),
         "ssh_key_path": ssh_key_path,
         "name": pod.get("name"),
         "gpu_type": pod.get("gpu_type"),

@@ -21,8 +21,10 @@ def run_remote(config: dict, remote_cfg: dict):
     from pyremote import remote, UvConfig
     
     host = remote_cfg["host"]
-    username = remote_cfg["username"]
-    password = remote_cfg["password"]
+    port = remote_cfg.get("port", 22)
+    username = remote_cfg.get("username", "root")
+    password = remote_cfg.get("password")
+    key_filename = remote_cfg.get("key_filename")
     
     uv_cfg = remote_cfg.get("uv", {})
     uv_path = uv_cfg.get("path", "~/.benchmark-venv")
@@ -35,18 +37,30 @@ def run_remote(config: dict, remote_cfg: dict):
         "huggingface_hub",
     ])
     
-    print(f"Connecting to remote server: {username}@{host}")
+    if key_filename:
+        key_filename = os.path.expanduser(key_filename)
+    
+    print(f"Connecting to remote server: {username}@{host}:{port}")
+    if key_filename:
+        print(f"Using SSH key: {key_filename}")
+    elif password:
+        print("Using password authentication")
     print(f"UV environment: {uv_path} (Python {python_version})")
     print(f"Dependencies: {deps}")
     print()
 
-    @remote(
-        host,
-        username,
-        password=password,
-        uv=UvConfig(path=uv_path, python_version=python_version),
-        dependencies=deps,
-    )
+    remote_kwargs = {
+        "uv": UvConfig(path=uv_path, python_version=python_version),
+        "dependencies": deps,
+    }
+    if password:
+        remote_kwargs["password"] = password
+    if key_filename:
+        remote_kwargs["key_filename"] = key_filename
+    if port != 22:
+        remote_kwargs["port"] = port
+
+    @remote(host, username, **remote_kwargs)
     def execute_benchmark():
         import os
         import signal
@@ -186,13 +200,43 @@ def run_remote(config: dict, remote_cfg: dict):
                 print(line, end='', flush=True)
             process.wait()
 
+        def download_model(repo_id, local_dir):
+            print()
+            print("=" * 64)
+            print(f"DOWNLOADING MODEL: {repo_id}")
+            print("=" * 64)
+            sys.stdout.flush()
+            
+            os.makedirs(local_dir, exist_ok=True)
+            
+            cmd = ["huggingface-cli", "download", repo_id, "--local-dir", local_dir]
+            print(f"Running: {' '.join(cmd)}")
+            sys.stdout.flush()
+            
+            process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+            for line in process.stdout:
+                print(line, end='', flush=True)
+            process.wait()
+            
+            if process.returncode != 0:
+                raise Exception(f"Model download failed with exit code {process.returncode}")
+            
+            print()
+            print("✓ Model download completed!")
+            sys.stdout.flush()
+
         # Run benchmarks
         for run_cfg in config.get("runs", []):
             name = run_cfg.get("name", "")
+            model_cfg = run_cfg.get("model", {})
             serve_cfg = run_cfg.get("serve", run_cfg)
             bench_cfg = run_cfg.get("bench", run_cfg)
 
-            model_path = serve_cfg.get("model_path", "")
+            # Download model if specified
+            if model_cfg.get("repo_id") and model_cfg.get("local_dir"):
+                download_model(model_cfg["repo_id"], model_cfg["local_dir"])
+
+            model_path = serve_cfg.get("model_path", model_cfg.get("local_dir", ""))
             port = serve_cfg.get("port", 8000)
             gpu_memory_utilization = serve_cfg.get("gpu_memory_utilization", 0.9)
             max_model_len = serve_cfg.get("max_model_len")

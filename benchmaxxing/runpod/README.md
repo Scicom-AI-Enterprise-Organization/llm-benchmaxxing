@@ -2,27 +2,28 @@
 
 Deploy and manage RunPod GPU pods.
 
-## Deploy
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `deploy` | Create and start a new pod |
+| `delete` | Terminate and remove a pod |
+| `find` | Get pod info (status, IP, SSH) |
+| `start` | Resume a stopped pod |
+
+## Usage
 
 ```bash
+# Deploy a new pod
 benchmaxxing runpod deploy config.yaml
-```
 
-## Delete
-
-```bash
-benchmaxxing runpod delete config.yaml
-```
-
-## Find
-
-```bash
+# Get pod info
 benchmaxxing runpod find config.yaml
-```
 
-## Start
+# Delete pod
+benchmaxxing runpod delete config.yaml
 
-```bash
+# Start stopped pod
 benchmaxxing runpod start config.yaml
 ```
 
@@ -56,8 +57,10 @@ env:
 
 ## Example Configs
 
-| File | GPUs | Volume |
-|------|------|--------|
-| `examples/2x_h100_sxm.yaml` | 2x H100 | 200GB |
-| `examples/4x_h100_sxm.yaml` | 4x H100 | 300GB |
-| `examples/8x_h100_sxm.yaml` | 8x H100 | 500GB |
+| File | GPUs |
+|------|------|
+| `examples/2x_h100_sxm.yaml` | 2x H100 |
+| `examples/4x_h100_sxm.yaml` | 4x H100 |
+| `examples/8x_h100_sxm.yaml` | 8x H100 |
+
+See [examples/](./examples/) for more configs.

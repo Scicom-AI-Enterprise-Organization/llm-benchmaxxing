@@ -1,15 +1,16 @@
 api_key: ""
-ssh_key: ""
+ssh_key: "~/.ssh/id_ed25519"
 
 pod:
   name: "benchmaxxing-8xh100-sxm"
   gpu_type: "NVIDIA H100 80GB HBM3"
   gpu_count: 8
   instance_type: spot
+  secure_cloud: true
 
 container:
   image: "runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04"
-  disk_size: 200
+  disk_size: 20
 
 storage:
   volume_size: 200
