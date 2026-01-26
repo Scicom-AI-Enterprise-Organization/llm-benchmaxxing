@@ -1,8 +1,13 @@
 runs:
   - name: "gpt-oss-120b-run"
     engine: "vllm"
-    serve:
-      model_path: "/root/gfs/01be5b33/gpt-oss-120b-Malaysian-Reasoning-SFT-v0.1"
+
+    model:
+      repo_id: "Scicom-intl/gpt-oss-120b-Malaysian-Reasoning-SFT-v0.1"
+      # local_dir: "/path/to/model" # optional, uses HF_HOME if not set
+
+    vllm_serve:
+      model_path: "Scicom-intl/gpt-oss-120b-Malaysian-Reasoning-SFT-v0.1"
       port: 8000
       gpu_memory_utilization: 0.9
       max_model_len: 12000
@@ -10,11 +15,13 @@ runs:
       dtype: "bfloat16"
       disable_log_requests: true
       enable_expert_parallel: false
-      tp_dp_pairs:
-        - tp: 8
-          dp: 1
-          pp: 1
-    bench:
+
+      parallelism_pairs:
+        - tensor_parallel: 8
+          data_parallel: 1
+          pipeline_parallel: 1
+
+    benchmark:
       save_results: false
       output_dir: "./benchmark_results"
       context_size: [1024, 2048, 4096, 8192]

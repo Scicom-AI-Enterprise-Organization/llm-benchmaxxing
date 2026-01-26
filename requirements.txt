@@ -4,4 +4,6 @@ vllm==0.11.0
 huggingface_hub[cli]
 cloudpickle
 paramiko
+runpod
+tqdm
 pyremote @ git+https://github.com/Scicom-AI-Enterprise-Organization/pyremote

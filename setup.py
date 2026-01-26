@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as f:
 
 setup(
     name="benchmaxxing",
-    version="0.1.0",
+    version="0.2.0",
     author="Scicom AI Enterprise",
     description="Seamless scripts for LLM performance benchmarking",
     long_description=long_description,
@@ -14,12 +14,13 @@ setup(
     packages=find_packages(),
     python_requires=">=3.10",
     install_requires=[
-        # Core dependencies (for remote execution)
         "pyyaml",
         "requests",
+        "tqdm",
         "cloudpickle",
         "paramiko",
         "pyremote @ git+https://github.com/Scicom-AI-Enterprise-Organization/pyremote",
+        "runpod"
     ],
     extras_require={
         # For local vLLM benchmarking

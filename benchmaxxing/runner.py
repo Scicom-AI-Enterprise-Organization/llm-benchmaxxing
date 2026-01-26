@@ -21,8 +21,10 @@ def run_remote(config: dict, remote_cfg: dict):
     from pyremote import remote, UvConfig
     
     host = remote_cfg["host"]
-    username = remote_cfg["username"]
-    password = remote_cfg["password"]
+    port = remote_cfg.get("port", 22)
+    username = remote_cfg.get("username", "root")
+    password = remote_cfg.get("password")
+    key_filename = remote_cfg.get("key_filename")
     
     uv_cfg = remote_cfg.get("uv", {})
     uv_path = uv_cfg.get("path", "~/.benchmark-venv")
@@ -35,18 +37,30 @@ def run_remote(config: dict, remote_cfg: dict):
         "huggingface_hub",
     ])
     
-    print(f"Connecting to remote server: {username}@{host}")
+    if key_filename:
+        key_filename = os.path.expanduser(key_filename)
+    
+    print(f"Connecting to remote server: {username}@{host}:{port}")
+    if key_filename:
+        print(f"Using SSH key: {key_filename}")
+    elif password:
+        print("Using password authentication")
     print(f"UV environment: {uv_path} (Python {python_version})")
     print(f"Dependencies: {deps}")
     print()
 
-    @remote(
-        host,
-        username,
-        password=password,
-        uv=UvConfig(path=uv_path, python_version=python_version),
-        dependencies=deps,
-    )
+    remote_kwargs = {
+        "uv": UvConfig(path=uv_path, python_version=python_version),
+        "dependencies": deps,
+    }
+    if password:
+        remote_kwargs["password"] = password
+    if key_filename:
+        remote_kwargs["key_filename"] = key_filename
+    if port != 22:
+        remote_kwargs["port"] = port
+
+    @remote(host, username, **remote_kwargs)
     def execute_benchmark():
         import os
         import signal
@@ -186,28 +200,69 @@ def run_remote(config: dict, remote_cfg: dict):
                 print(line, end='', flush=True)
             process.wait()
 
+        def download_model(repo_id, local_dir, hf_token=None):
+            print()
+            print("=" * 64)
+            print(f"DOWNLOADING MODEL: {repo_id}")
+            print("=" * 64)
+            sys.stdout.flush()
+            
+            os.makedirs(local_dir, exist_ok=True)
+            
+            # Set HF_TOKEN if provided (config takes priority over env)
+            env = os.environ.copy()
+            token = hf_token or os.environ.get("HF_TOKEN")
+            if token:
+                env["HF_TOKEN"] = token
+            
+            cmd = ["huggingface-cli", "download", repo_id, "--local-dir", local_dir]
+            print(f"Running: {' '.join(cmd)}")
+            sys.stdout.flush()
+            
+            process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, env=env)
+            for line in process.stdout:
+                print(line, end='', flush=True)
+            process.wait()
+            
+            if process.returncode != 0:
+                raise Exception(f"Model download failed with exit code {process.returncode}")
+            
+            print()
+            print("✓ Model download completed!")
+            sys.stdout.flush()
+
         # Run benchmarks
         for run_cfg in config.get("runs", []):
             name = run_cfg.get("name", "")
-            serve_cfg = run_cfg.get("serve", run_cfg)
-            bench_cfg = run_cfg.get("bench", run_cfg)
+            model_cfg = run_cfg.get("model", {})
+            vllm_serve_cfg = run_cfg.get("vllm_serve", run_cfg)
+            benchmark_cfg = run_cfg.get("benchmark", run_cfg)
 
-            model_path = serve_cfg.get("model_path", "")
-            port = serve_cfg.get("port", 8000)
-            gpu_memory_utilization = serve_cfg.get("gpu_memory_utilization", 0.9)
-            max_model_len = serve_cfg.get("max_model_len")
-            max_num_seqs = serve_cfg.get("max_num_seqs")
-            dtype = serve_cfg.get("dtype")
-            disable_log_requests = serve_cfg.get("disable_log_requests", False)
-            enable_expert_parallel = serve_cfg.get("enable_expert_parallel", False)
-            tp_dp_pairs = serve_cfg.get("tp_dp_pairs", [])
+            # Set HF_TOKEN for gated models (config takes priority over env)
+            hf_token = model_cfg.get("hf_token") or config.get("hf_token")
+            if hf_token:
+                os.environ["HF_TOKEN"] = hf_token
 
-            output_dir = bench_cfg.get("output_dir", "./benchmark_results")
-            context_sizes = bench_cfg.get("context_size", [])
-            concurrencies = bench_cfg.get("concurrency", [])
-            num_prompts_list = bench_cfg.get("num_prompts", [])
-            output_lens = bench_cfg.get("output_len", [])
-            save_results = bench_cfg.get("save_results", False)
+            # Download model if specified
+            if model_cfg.get("repo_id") and model_cfg.get("local_dir"):
+                download_model(model_cfg["repo_id"], model_cfg["local_dir"], hf_token)
+
+            model_path = vllm_serve_cfg.get("model_path", model_cfg.get("local_dir", ""))
+            port = vllm_serve_cfg.get("port", 8000)
+            gpu_memory_utilization = vllm_serve_cfg.get("gpu_memory_utilization", 0.9)
+            max_model_len = vllm_serve_cfg.get("max_model_len")
+            max_num_seqs = vllm_serve_cfg.get("max_num_seqs")
+            dtype = vllm_serve_cfg.get("dtype")
+            disable_log_requests = vllm_serve_cfg.get("disable_log_requests", False)
+            enable_expert_parallel = vllm_serve_cfg.get("enable_expert_parallel", False)
+            parallelism_pairs = vllm_serve_cfg.get("parallelism_pairs", [])
+
+            output_dir = benchmark_cfg.get("output_dir", "./benchmark_results")
+            context_sizes = benchmark_cfg.get("context_size", [])
+            concurrencies = benchmark_cfg.get("concurrency", [])
+            num_prompts_list = benchmark_cfg.get("num_prompts", [])
+            output_lens = benchmark_cfg.get("output_len", [])
+            save_results = benchmark_cfg.get("save_results", False)
 
             if not name or not model_path:
                 continue
@@ -215,10 +270,10 @@ def run_remote(config: dict, remote_cfg: dict):
             if save_results:
                 os.makedirs(output_dir, exist_ok=True)
 
-            for pair in tp_dp_pairs:
-                tp = pair.get("tp", 1)
-                dp = pair.get("dp", 1)
-                pp = pair.get("pp", 1)
+            for pair in parallelism_pairs:
+                tp = pair.get("tensor_parallel", 1)
+                dp = pair.get("data_parallel", 1)
+                pp = pair.get("pipeline_parallel", 1)
 
                 print()
                 print("=" * 64)

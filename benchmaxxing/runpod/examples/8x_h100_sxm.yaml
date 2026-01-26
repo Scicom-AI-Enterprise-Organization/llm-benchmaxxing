@@ -1,0 +1,26 @@
+runpod_api_key: ""
+ssh_private_key: "/path/to/your/private/key"
+
+pod:
+  name: "benchmaxxing-8xh100-sxm"
+  gpu_type: "NVIDIA H100 80GB HBM3" # https://docs.runpod.io/references/gpu-types#gpu-types
+  gpu_count: 8
+  instance_type: spot # (spot|on_demand)
+  secure_cloud: true
+
+container:
+  image: "runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04" # docker image
+  disk_size: 200 # temporary storage (GB) (https://docs.runpod.io/pods/storage/types#container-disk)
+
+storage:
+  volume_size: 200  # persistent storage (GB) (https://docs.runpod.io/pods/storage/types#network-volume)
+  mount_path: "/workspace"
+
+ports:
+  http: [8888, 8000]
+  tcp: [22]
+
+env:
+  HF_HOME: "/workspace/hf_home" # HuggingFace cache directory
+  # Include any additional environment variables here
+  OPENAI_API_KEY: ""
