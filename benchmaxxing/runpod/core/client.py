@@ -25,12 +25,13 @@ def _format_env_for_graphql(env: dict) -> str:
 
 
 def get_minimum_bid_price(gpu_type: str, gpu_count: int = 1, secure_cloud: bool = True) -> Optional[float]:
-    """Query the current minimum bid price for a GPU type."""
+    """Query the current minimum bid price for a GPU type (per GPU)."""
+    # Query for 1 GPU to get the per-GPU price
     query = f"""
     query {{
         gpuTypes(input: {{id: "{gpu_type}"}}) {{
             id
-            lowestPrice(input: {{gpuCount: {gpu_count}, secureCloud: {str(secure_cloud).lower()}}}) {{
+            lowestPrice(input: {{gpuCount: 1, secureCloud: {str(secure_cloud).lower()}}}) {{
                 minimumBidPrice
             }}
         }}
@@ -87,7 +88,7 @@ def deploy(
         else:
             bid = get_minimum_bid_price(gpu_type, gpu_count, secure_cloud)
             if bid:
-                print(f"Using minimum bid price: ${bid}/GPU/hour")
+                print(f"Using spot instance with minimum bid: ${bid}/GPU/hour")
             else:
                 bid = 0.0  # Fallback to 0 if query fails
         query = f"""
@@ -103,6 +104,7 @@ def deploy(
                 imageName: "{image}",
                 ports: "{ports}",
                 volumeMountPath: "{volume_mount_path}",
+                startSsh: true,
                 env: {env_graphql}
             }}) {{
                 id
@@ -115,6 +117,7 @@ def deploy(
         pod = result["data"]["podRentInterruptable"]
     else:
         # Use podFindAndDeployOnDemand for on-demand instances
+        print("Using on-demand instance")
         query = f"""
         mutation {{
             podFindAndDeployOnDemand(input: {{
@@ -127,6 +130,7 @@ def deploy(
                 imageName: "{image}",
                 ports: "{ports}",
                 volumeMountPath: "{volume_mount_path}",
+                startSsh: true,
                 env: {env_graphql}
             }}) {{
                 id
@@ -203,29 +207,20 @@ def delete(pod_id: Optional[str] = None, name: Optional[str] = None) -> dict:
     return {"status": "deleted", "id": pod_id, "name": name}
 
 
-def get_ssh_info(pod_id: str, ssh_key_path: Optional[str] = None, debug: bool = False) -> Optional[dict]:
+def get_ssh_info(pod_id: str, ssh_key_path: Optional[str] = None) -> Optional[dict]:
     pod = runpod.get_pod(pod_id)
     
     key_path = ssh_key_path or "~/.ssh/id_ed25519"
-    
-    if debug:
-        print(f"\n[DEBUG] pod keys: {pod.keys() if pod else 'None'}")
     
     if not pod:
         return None
     
     runtime = pod.get("runtime")
     
-    if debug:
-        print(f"[DEBUG] runtime: {runtime}")
-    
     if not runtime:
         return None
     
     ports = runtime.get("ports", [])
-    
-    if debug:
-        print(f"[DEBUG] ports: {ports}")
     
     for port in ports:
         if port.get("privatePort") == 22:
@@ -241,7 +236,7 @@ def get_ssh_info(pod_id: str, ssh_key_path: Optional[str] = None, debug: bool = 
     return None
 
 
-def check_ssh(ip: str, port: int, ssh_key_path: Optional[str] = None, timeout: float = 10.0, debug: bool = False) -> bool:
+def check_ssh(ip: str, port: int, ssh_key_path: Optional[str] = None, timeout: float = 10.0) -> bool:
     key_path = os.path.expanduser(ssh_key_path or "~/.ssh/id_ed25519")
     
     try:
@@ -257,20 +252,9 @@ def check_ssh(ip: str, port: int, ssh_key_path: Optional[str] = None, timeout: f
             "echo ok"
         ]
         
-        if debug:
-            print(f"\n[DEBUG] SSH cmd: {' '.join(cmd)}")
-        
         result = subprocess.run(cmd, capture_output=True, timeout=timeout + 5)
-        
-        if debug:
-            print(f"[DEBUG] SSH returncode: {result.returncode}")
-            if result.stderr:
-                print(f"[DEBUG] SSH stderr: {result.stderr.decode()[:200]}")
-        
         return result.returncode == 0
-    except Exception as e:
-        if debug:
-            print(f"[DEBUG] SSH exception: {e}")
+    except Exception:
         return False
 
 
@@ -304,11 +288,11 @@ def wait_for_pod(
                 time.sleep(sleep_time)
                 continue
             
-            ssh_info = get_ssh_info(pod_id, ssh_key_path, debug=(i == 0))
+            ssh_info = get_ssh_info(pod_id, ssh_key_path)
             
             if ssh_info:
                 pbar.set_description(f"Trying SSH {ssh_info['ip']}:{ssh_info['port']}...")
-                if check_ssh(ssh_info["ip"], ssh_info["port"], ssh_key_path, debug=(i < 2)):
+                if check_ssh(ssh_info["ip"], ssh_info["port"], ssh_key_path):
                     pbar.set_description("Pod ready!")
                     return {"ready": True, "ssh": ssh_info}
             else:

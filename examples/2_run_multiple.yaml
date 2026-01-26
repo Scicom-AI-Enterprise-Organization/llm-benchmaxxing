@@ -4,6 +4,8 @@ runs:
 
     model:
       repo_id: "Scicom-intl/gpt-oss-120b-Malaysian-Reasoning-SFT-v0.1"
+      hf_token: "" # or export HF_TOKEN
+      local_dir: "/path/to/model" # optional, uses HF_HOME if not set
 
     vllm_serve:
       model_path: "Scicom-intl/gpt-oss-120b-Malaysian-Reasoning-SFT-v0.1"
@@ -33,6 +35,7 @@ runs:
 
     model:
       repo_id: "Qwen/Qwen3-235B-A22B-Instruct"
+      # hf_token: "" # or export HF_TOKEN
 
     vllm_serve:
       model_path: "Qwen/Qwen3-235B-A22B-Instruct"

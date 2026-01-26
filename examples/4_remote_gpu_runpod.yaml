@@ -19,11 +19,14 @@ runpod:
   env:
     HF_HOME: "/workspace/hf_home" # HuggingFace cache directory
 
+# Remote execution config
+# When using `benchmaxxing runpod bench`, host/port/username are auto-populated from the pod
+# When using `benchmaxxing bench`, you need to provide host/port/username manually
 remote:
-  host: "" # ip from runpod deploy output
-  port: 22
-  username: "root"
-  key_filename: "/path/to/your/private/key"
+  # host: ""       # Not needed for e2e - auto-populated from runpod deploy
+  # port: 22       # Not needed for e2e - auto-populated from runpod deploy  
+  # username: ""   # Not needed for e2e - defaults to "root"
+  key_filename: "/path/to/your/private/key"  # Same as runpod.ssh_private_key
   uv:
     path: "~/.benchmark-venv"
     python_version: "3.11"
@@ -40,6 +43,7 @@ runs:
     model:
       repo_id: "Qwen/Qwen2.5-3B-Instruct"
       local_dir: "/workspace/models/qwen-3b" # optional, uses HF_HOME if not set
+      hf_token: "" # or export HF_TOKEN
 
     vllm_serve:
       model_path: "Qwen/Qwen2.5-3B-Instruct"

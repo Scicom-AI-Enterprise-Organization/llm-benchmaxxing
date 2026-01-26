@@ -16,6 +16,130 @@ import yaml
 SUPPORTED_ENGINES = ["vllm"]
 
 
+def run_e2e(config: dict):
+    """
+    End-to-end benchmark execution with RunPod:
+    1. Deploy RunPod pod
+    2. Run benchmarks on the pod
+    3. Delete pod when done
+    """
+    from .runpod.core.client import deploy, delete, set_api_key
+    
+    runpod_cfg = config.get("runpod", {})
+    remote_cfg = config.get("remote", {})
+    
+    if not runpod_cfg:
+        raise ValueError("No 'runpod' section found in config")
+    
+    # Set API key
+    api_key = runpod_cfg.get("runpod_api_key") or os.environ.get("RUNPOD_API_KEY")
+    if api_key:
+        set_api_key(api_key)
+    else:
+        raise ValueError("RunPod API key not found. Set 'runpod.runpod_api_key' in config or RUNPOD_API_KEY env var")
+    
+    # Prepare deploy config from runpod section
+    pod_cfg = runpod_cfg.get("pod", {})
+    container_cfg = runpod_cfg.get("container", {})
+    storage_cfg = runpod_cfg.get("storage", {})
+    ports_cfg = runpod_cfg.get("ports", {})
+    env_cfg = runpod_cfg.get("env", {})
+    
+    # Format ports
+    ports = []
+    for p in ports_cfg.get("http", []):
+        ports.append(f"{p}/http")
+    for p in ports_cfg.get("tcp", []):
+        ports.append(f"{p}/tcp")
+    
+    instance_type = pod_cfg.get("instance_type", "spot")
+    spot = instance_type == "spot"
+    ssh_key_path = runpod_cfg.get("ssh_private_key")
+    
+    deploy_kwargs = {
+        "name": pod_cfg.get("name"),
+        "gpu_type": pod_cfg.get("gpu_type"),
+        "gpu_count": pod_cfg.get("gpu_count"),
+        "spot": spot,
+        "bid_per_gpu": pod_cfg.get("bid_per_gpu"),
+        "secure_cloud": pod_cfg.get("secure_cloud", True),
+        "image": container_cfg.get("image"),
+        "container_disk_size": container_cfg.get("disk_size", 20),
+        "disk_size": storage_cfg.get("volume_size"),
+        "volume_mount_path": storage_cfg.get("mount_path", "/workspace"),
+        "ports": ports if ports else None,
+        "env": env_cfg if env_cfg else None,
+        "ssh_key_path": ssh_key_path,
+        "wait_for_ready": True,
+    }
+    
+    pod_id = None
+    
+    try:
+        print()
+        print("=" * 64)
+        print("STEP 1: DEPLOYING RUNPOD POD")
+        print("=" * 64)
+        
+        instance = deploy(**deploy_kwargs)
+        pod_id = instance["id"]
+        
+        print()
+        print(f"Pod deployed: {pod_id}")
+        print(f"Pod name: {instance.get('name')}")
+        
+        if "ssh" not in instance:
+            raise Exception("SSH info not available from pod deployment")
+        
+        ssh_info = instance["ssh"]
+        print(f"SSH: {ssh_info['command']}")
+        
+        # Build remote config from pod SSH info
+        auto_remote_cfg = {
+            "host": ssh_info["ip"],
+            "port": ssh_info["port"],
+            "username": "root",
+            "key_filename": ssh_key_path or remote_cfg.get("key_filename"),
+            "uv": remote_cfg.get("uv", {}),
+            "dependencies": remote_cfg.get("dependencies", []),
+        }
+        
+        print()
+        print("=" * 64)
+        print("STEP 2: RUNNING BENCHMARKS")
+        print("=" * 64)
+        
+        run_remote(config, auto_remote_cfg)
+        
+        print()
+        print("=" * 64)
+        print("STEP 3: CLEANING UP POD")
+        print("=" * 64)
+        
+    except Exception as e:
+        print()
+        print("=" * 64)
+        print(f"ERROR: {e}")
+        print("=" * 64)
+        raise
+    
+    finally:
+        if pod_id:
+            print()
+            print(f"Deleting pod: {pod_id}")
+            try:
+                result = delete(pod_id=pod_id)
+                print(f"Pod deleted: {result}")
+            except Exception as e:
+                print(f"Warning: Failed to delete pod {pod_id}: {e}")
+                print("Please delete the pod manually via RunPod dashboard")
+    
+    print()
+    print("=" * 64)
+    print("END-TO-END BENCHMARK COMPLETED!")
+    print("=" * 64)
+
+
 def run_remote(config: dict, remote_cfg: dict):
     """Execute benchmark on a remote GPU server via pyremote with live streaming."""
     from pyremote import remote, UvConfig

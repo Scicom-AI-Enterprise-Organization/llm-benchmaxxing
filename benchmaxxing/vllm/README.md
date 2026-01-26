@@ -14,11 +14,6 @@ Benchmarking module for [vLLM](https://github.com/vllm-project/vllm).
 ```bash
 # Install with vllm
 uv pip install "benchmaxxing[vllm] @ git+https://github.com/Scicom-AI-Enterprise-Organization/llm-benchmaxxing.git"
-
-# Download model
-huggingface-cli download <huggingface_model_path> \
-  --local-dir /download/dir
-
 # single run
 benchmaxxing bench examples/1_run_single.yaml
 
@@ -33,8 +28,9 @@ runs:
     engine: "vllm"
 
     model:
-      repo_id: "meta-llama/Llama-2-7b-hf"      # HuggingFace model repo
-      local_dir: "/path/to/model"              # optional, custom local path
+      repo_id: "meta-llama/Llama-2-7b-hf"
+      local_dir: "/path/to/model" # optional, uses HF_HOME if not set
+      hf_token: "" # or export HF_TOKEN
 
     vllm_serve:
       model_path: "meta-llama/Llama-2-7b-hf"
@@ -58,20 +54,6 @@ runs:
       num_prompts: [100]
       output_len: [128]
 ```
-
-## Model Configuration
-
-The `model` section controls where models are downloaded/loaded from:
-
-| Field | Required | Description |
-|-------|----------|-------------|
-| `repo_id` | Yes | HuggingFace model repository ID |
-| `local_dir` | No | Custom local path for model storage |
-
-**When to use `local_dir`:**
-
-- **Not needed** if you set `HF_HOME` environment variable (e.g., in RunPod config). Models will be cached automatically in `$HF_HOME/hub/`.
-- **Use it** when you need a specific path (e.g., shared storage, pre-downloaded models, or custom mount points).
 
 ## Output
 

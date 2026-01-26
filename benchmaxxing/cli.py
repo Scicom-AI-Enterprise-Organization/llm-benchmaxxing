@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
+import os
 import sys
 import argparse
 
-from .runner import run
+from .runner import run, run_e2e
 
 
 def main():
@@ -29,6 +30,10 @@ def main():
 
     start_parser = runpod_subparsers.add_parser("start", help="Start a stopped pod")
     start_parser.add_argument("target", help="Pod ID or config YAML path")
+
+    # runpod bench - end-to-end: deploy -> run -> delete
+    e2e_parser = runpod_subparsers.add_parser("bench", help="End-to-end: deploy pod, run benchmarks, delete pod")
+    e2e_parser.add_argument("config", help="Config YAML file")
 
     args = parser.parse_args()
 
@@ -84,6 +89,15 @@ def main():
             else:
                 result = start(target)
             print(json.dumps(result, indent=2))
+
+        elif args.runpod_command == "bench":
+            import yaml
+            config_path = args.config
+            if not os.path.isabs(config_path):
+                config_path = os.path.abspath(config_path)
+            with open(config_path) as f:
+                config = yaml.safe_load(f)
+            run_e2e(config)
 
         else:
             runpod_parser.print_help()

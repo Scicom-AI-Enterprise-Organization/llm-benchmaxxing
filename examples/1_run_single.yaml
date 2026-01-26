@@ -4,7 +4,8 @@ runs:
 
     model:
       repo_id: "Scicom-intl/gpt-oss-120b-Malaysian-Reasoning-SFT-v0.1"
-      # local_dir: "/path/to/model" # optional, uses HF_HOME if not set
+      local_dir: "/path/to/model" # optional, uses HF_HOME if not set
+      hf_token: "" # or export HF_TOKEN
 
     vllm_serve:
       model_path: "Scicom-intl/gpt-oss-120b-Malaysian-Reasoning-SFT-v0.1"
