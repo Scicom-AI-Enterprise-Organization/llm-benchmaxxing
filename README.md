@@ -1,6 +1,6 @@
-# Benchmaxxing
+# LLM-Benchmaq
 
-Seamless scripts for LLM performance benchmaxxing.
+Seamless scripts for LLM performance benchmarking, written in Northern Malaysia slang, with end 'k' sounds replaced by a 'q' sound.
 
 ## Supported Engines
 
@@ -16,7 +16,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 uv venv --python 3.11
 source .venv/bin/activate
 
-uv pip install "benchmaxxing @ git+https://github.com/Scicom-AI-Enterprise-Organization/llm-benchmaxxing.git"
+uv pip install "benchmaxxing @ git+https://github.com/Scicom-AI-Enterprise-Organization/llm-benchmaq.git"
 ```
 
 ## Usage
