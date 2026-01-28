@@ -4,7 +4,7 @@ Seamless scripts for LLM performance benchmarking, written in Northern Malaysia 
 
 ## Supported Engines
 
-- [x] [vLLM](./benchmaxxing/vllm/) - vLLM inference server
+- [x] [vLLM](./benchmaq/vllm/) - vLLM inference server
 - [ ] TensorRT-LLM - *(coming soon)*
 - [ ] SGLang - *(coming soon)*
 
@@ -16,7 +16,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 uv venv --python 3.11
 source .venv/bin/activate
 
-uv pip install "benchmaxxing @ git+https://github.com/Scicom-AI-Enterprise-Organization/llm-benchmaq.git"
+uv pip install "benchmaq @ git+https://github.com/Scicom-AI-Enterprise-Organization/llm-benchmaq.git"
 ```
 
 ## Usage
@@ -25,19 +25,19 @@ uv pip install "benchmaxxing @ git+https://github.com/Scicom-AI-Enterprise-Organ
 
 ```bash
 # Install with vllm
-uv pip install "benchmaxxing[vllm] @ git+https://github.com/Scicom-AI-Enterprise-Organization/llm-benchmaxxing.git"
+uv pip install "benchmaq[vllm] @ git+https://github.com/Scicom-AI-Enterprise-Organization/llm-benchmaq.git"
 
 # single run
-benchmaxxing bench examples/1_run_single.yaml
+benchmaq bench examples/1_run_single.yaml
 
 # multiple run
-benchmaxxing bench examples/2_run_multiple.yaml
+benchmaq bench examples/2_run_multiple.yaml
 ```
 
 ### 2. Benchmark Remotely via SSH
 
 ```bash
-benchmaxxing bench examples/3_remote_gpu_ssh_password.yaml
+benchmaq bench examples/3_remote_gpu_ssh_password.yaml
 ```
 
 ### 3. Benchmark Remotely on Runpod
@@ -45,7 +45,7 @@ benchmaxxing bench examples/3_remote_gpu_ssh_password.yaml
 #### Deploy RunPod Instance
 
 ```bash
-benchmaxxing runpod deploy examples/4_remote_gpu_runpod.yaml
+benchmaq runpod deploy examples/4_remote_gpu_runpod.yaml
 ```
 
 Output:
@@ -60,15 +60,55 @@ Pod created: abc123xyz
 Copy the SSH info to your config's `remote` section, then:
 
 ```bash
-benchmaxxing bench examples/4_remote_gpu_runpod.yaml
+benchmaq bench examples/4_remote_gpu_runpod.yaml
 ```
 
 #### Delete RunPod Instance
 
 ```bash
-benchmaxxing runpod delete examples/4_remote_gpu_runpod.yaml
+benchmaq runpod delete examples/4_remote_gpu_runpod.yaml
+```
+
+## Python API
+
+```python
+import benchmaq
+
+# Run benchmark (local or remote SSH)
+benchmaq.bench("examples/1_run_single.yaml")
+benchmaq.bench("examples/3_remote_gpu_ssh_password.yaml")
+
+# Runpod end-to-end: deploy -> benchmark -> cleanup
+benchmaq.runpod.bench("examples/5_config_runpod.yaml")
+
+# Runpod deploy / delete
+benchmaq.runpod.deploy("examples/4_remote_gpu_runpod.yaml")
+benchmaq.runpod.delete("examples/4_remote_gpu_runpod.yaml")
+```
+
+### Multiprocessing (Parallel Benchmarks)
+
+```python
+from multiprocessing import Pool
+
+# run_benchmark is a module-level function that supports multiprocessing
+from benchmaq.runpod import run_benchmark
+
+configs = [
+    "examples/5_config_runpod_multiprocess_1.yaml",
+    "examples/5_config_runpod_multiprocess_2.yaml",
+]
+
+with Pool(processes=len(configs)) as pool:
+    results = pool.map(run_benchmark, configs)
 ```
 
 ## Config Format
 
 See [examples/](./examples/) for more config samples.
+
+## Unit & Integration Test
+
+```
+uv run python -m pytest tests/ -v -s
+```

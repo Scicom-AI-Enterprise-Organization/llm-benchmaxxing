@@ -2,7 +2,7 @@ runpod_api_key: ""
 ssh_private_key: "/path/to/your/private/key"
 
 pod:
-  name: "benchmaxxing-8xh100-sxm"
+  name: "benchmaq-8xh100-sxm"
   gpu_type: "NVIDIA H100 80GB HBM3" # https://docs.runpod.io/references/gpu-types#gpu-types
   gpu_count: 8
   instance_type: spot # (spot|on_demand)

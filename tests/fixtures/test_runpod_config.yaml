@@ -1,0 +1,61 @@
+# Test config for 1x A100 PCIe spot instance
+runpod:
+  ssh_private_key: "~/.ssh/id_ed25519"
+  pod:
+    name: benchmaq_test_1xa100
+    gpu_type: "NVIDIA A100 80GB PCIe"
+    gpu_count: 1
+    instance_type: spot
+    secure_cloud: true
+    deploy_retries: 10
+    deploy_retry_interval: 15
+  container:
+    image: runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04
+    disk_size: 50
+  storage:
+    volume_size: 50
+    mount_path: /workspace
+  ports:
+    http: [8888, 8000]
+    tcp: [22]
+  env:
+    HF_HOME: "/workspace/hf_home"
+
+remote:
+  username: root
+  uv:
+    path: ~/.benchmark-venv
+    python_version: "3.11"
+  dependencies:
+    - pyyaml
+    - requests
+    - vllm
+    - huggingface_hub
+
+runs:
+  - name: test_run
+    engine: vllm
+    model:
+      repo_id: "Qwen/Qwen2.5-0.5B"
+      local_dir: "/workspace/Qwen2.5-0.5B"
+
+    vllm_serve:
+      model_path: "/workspace/Qwen2.5-0.5B"
+      port: 8000
+      gpu_memory_utilization: 0.9
+      max_model_len: 4096
+      max_num_seqs: 64
+      dtype: "auto"
+      disable_log_requests: true
+      parallelism_pairs:
+        - tensor_parallel: 1
+          data_parallel: 1
+          pipeline_parallel: 1
+
+    benchmark:
+      save_results: true
+      output_dir: ./benchmark_results
+      context_size: [512]
+      concurrency: [10]
+      num_prompts: [10]
+      output_len: [32]

@@ -1,0 +1,45 @@
+# Remote execution config
+# When using `benchmaq runpod bench`, host/port/username are auto-populated from the pod
+# When using `benchmaq bench`, you need to provide host/port/username manually
+remote:
+  host: ""       # Not needed for e2e - auto-populated from runpod deploy
+  port: 22       # Not needed for e2e - auto-populated from runpod deploy  
+  username: "root"   # Not needed for e2e - defaults to "root"
+  # key_filename: "/path/to/your/private/key"  # Same as runpod.ssh_private_key
+  password: ""
+  uv:
+    path: "~/.adhavenv"
+    python_version: "3.11"
+  dependencies:
+    - vllm
+    - pyyaml
+    - requests
+    - huggingface_hub
+
+runs:
+  - name: "gpt-oss-120b-benchmark-adha-ansible-server-test"
+    engine: "vllm"
+
+    vllm_serve:
+      model_path: "/gpt-oss-120b-malaysian"
+      port: 8000
+      gpu_memory_utilization: 0.9
+      max_model_len: 15000
+      max_num_seqs: 256
+      dtype: "bfloat16"
+      disable_log_requests: true
+      enable_expert_parallel: false
+
+      parallelism_pairs:
+        - tensor_parallel: 8
+          data_parallel: 1
+          pipeline_parallel: 1
+
+    benchmark:
+      save_results: true
+      output_dir: "/workspace/benchmark_results"
+      context_size: [1024]
+      concurrency: [100]
+      num_prompts: [100]
+      output_len: [128]
+ 

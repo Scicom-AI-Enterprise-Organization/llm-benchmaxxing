@@ -7,7 +7,7 @@ from .runner import run, run_e2e
 
 
 def main():
-    parser = argparse.ArgumentParser(prog="benchmaxxing", description="LLM benchmarking toolkit")
+    parser = argparse.ArgumentParser(prog="benchmaq", description="LLM benchmarking toolkit")
     subparsers = parser.add_subparsers(dest="command")
 
     # benchmark command
@@ -42,13 +42,25 @@ def main():
 
     elif args.command == "runpod":
         import json
-        from .runpod.core.client import deploy, delete, find, find_by_name, start, set_api_key
+        from .runpod.core.client import deploy, delete, find, find_by_name, start, set_api_key, get_api_key
         from .runpod.config import load_config
+
+        def ensure_api_key():
+            """Ensure API key is set on runpod module."""
+            # Always try to set from environment if not already set via config
+            env_key = os.environ.get("RUNPOD_API_KEY")
+            if env_key:
+                set_api_key(env_key)
+            elif not get_api_key():
+                print("Error: RUNPOD_API_KEY not set. Set it in environment or use a config file.")
+                sys.exit(1)
 
         def load_api_key_from_config(config_path):
             config = load_config(config_path)
             if config.get("api_key"):
                 set_api_key(config["api_key"])
+            else:
+                ensure_api_key()
             return config
 
         if args.runpod_command == "deploy":
@@ -64,6 +76,7 @@ def main():
                 config = load_api_key_from_config(target)
                 result = delete(name=config.get("name"))
             else:
+                ensure_api_key()
                 result = delete(pod_id=target)
             print(json.dumps(result, indent=2))
 
@@ -74,6 +87,7 @@ def main():
                 pod = find_by_name(config.get("name"))
                 result = pod if pod else {"error": f"Pod '{config.get('name')}' not found"}
             else:
+                ensure_api_key()
                 result = find(target)
             print(json.dumps(result, indent=2))
 
@@ -83,11 +97,19 @@ def main():
                 config = load_api_key_from_config(target)
                 pod = find_by_name(config.get("name"))
                 if pod:
-                    result = start(pod["id"])
+                    gpu_count = pod.get("gpuCount", 1)
+                    result = start(pod["id"], gpu_count=gpu_count)
                 else:
                     result = {"error": f"Pod '{config.get('name')}' not found"}
             else:
-                result = start(target)
+                ensure_api_key()
+                # Need to get pod info first to know gpu_count
+                pod = find(target)
+                if pod:
+                    gpu_count = pod.get("gpuCount", 1)
+                    result = start(target, gpu_count=gpu_count)
+                else:
+                    result = {"error": f"Pod '{target}' not found"}
             print(json.dumps(result, indent=2))
 
         elif args.runpod_command == "bench":

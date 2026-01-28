@@ -2,7 +2,7 @@ runpod:
   runpod_api_key: "" # or export RUNPOD_API_KEY
   ssh_private_key: "/path/to/your/private/key"
   pod:
-    name: "benchmaxxing-8xh100"
+    name: "benchmaq-8xh100"
     gpu_type: "NVIDIA A100-SXM4-80GB" # https://docs.runpod.io/references/gpu-types#gpu-types
     gpu_count: 2
     instance_type: on_demand # (spot|on_demand)
@@ -20,8 +20,8 @@ runpod:
     HF_HOME: "/workspace/hf_home" # HuggingFace cache directory
 
 # Remote execution config
-# When using `benchmaxxing runpod bench`, host/port/username are auto-populated from the pod
-# When using `benchmaxxing bench`, you need to provide host/port/username manually
+# When using `benchmaq runpod bench`, host/port/username are auto-populated from the pod
+# When using `benchmaq bench`, you need to provide host/port/username manually
 remote:
   # host: ""       # Not needed for e2e - auto-populated from runpod deploy
   # port: 22       # Not needed for e2e - auto-populated from runpod deploy  

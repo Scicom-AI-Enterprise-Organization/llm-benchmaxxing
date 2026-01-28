@@ -11,14 +11,27 @@ Benchmarking module for [vLLM](https://github.com/vllm-project/vllm).
 
 ## Usage
 
+### CLI
+
 ```bash
 # Install with vllm
-uv pip install "benchmaxxing[vllm] @ git+https://github.com/Scicom-AI-Enterprise-Organization/llm-benchmaxxing.git"
+uv pip install "benchmaq[vllm] @ git+https://github.com/Scicom-AI-Enterprise-Organization/llm-benchmaq.git"
+
 # single run
-benchmaxxing bench examples/1_run_single.yaml
+benchmaq bench examples/1_run_single.yaml
 
 # multiple run
-benchmaxxing bench examples/2_run_multiple.yaml
+benchmaq bench examples/2_run_multiple.yaml
+```
+
+### Python API
+
+```python
+import benchmaq
+
+# Run benchmark (local or remote SSH)
+benchmaq.bench("examples/1_run_single.yaml")
+benchmaq.bench("examples/3_remote_gpu_ssh_password.yaml")
 ```
 ## Config Format
 

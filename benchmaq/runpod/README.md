@@ -1,15 +1,15 @@
-# Runpod CLI
+# Runpod Module
 
 Deploy and manage RunPod GPU pods.
 
-## Usage
+## CLI Usage
 
 ### Deploy a Pod
 
 Create and start a new GPU pod on RunPod.
 
 ```bash
-benchmaxxing runpod deploy config.yaml
+benchmaq runpod deploy config.yaml
 ```
 
 Output:
@@ -24,7 +24,7 @@ Pod created: abc123xyz
 Retrieve pod status, IP address, and SSH connection details.
 
 ```bash
-benchmaxxing runpod find config.yaml
+benchmaq runpod find config.yaml
 ```
 
 Output:
@@ -39,7 +39,7 @@ Pod: my-pod (abc123xyz)
 Resume a previously stopped pod without losing data.
 
 ```bash
-benchmaxxing runpod start config.yaml
+benchmaq runpod start config.yaml
 ```
 
 ### Delete a Pod
@@ -47,7 +47,43 @@ benchmaxxing runpod start config.yaml
 Terminate and remove a pod permanently.
 
 ```bash
-benchmaxxing runpod delete config.yaml
+benchmaq runpod delete config.yaml
+```
+
+## Python API
+
+```python
+import benchmaq
+
+# RunPod end-to-end: deploy -> benchmark -> cleanup
+benchmaq.runpod.bench("examples/5_config_runpod.yaml")
+
+# RunPod deploy / delete
+benchmaq.runpod.deploy("examples/4_remote_gpu_runpod.yaml")
+benchmaq.runpod.delete("examples/4_remote_gpu_runpod.yaml")
+
+# Pod utilities (requires RUNPOD_API_KEY env var)
+pods = benchmaq.runpod.list_pods()
+pod = benchmaq.runpod.find(pod_id="abc123")
+pod = benchmaq.runpod.find_by_name(name="my-pod")
+benchmaq.runpod.stop(pod_id="abc123")
+benchmaq.runpod.start(pod_id="abc123")
+```
+
+### Multiprocessing (Parallel Benchmarks)
+
+```python
+from multiprocessing import Pool
+# run_benchmark is a module-level function that supports multiprocessing (macOS spawn method)
+from benchmaq.runpod import run_benchmark
+
+configs = [
+    "examples/5_config_runpod_multiprocess_1.yaml",
+    "examples/5_config_runpod_multiprocess_2.yaml",
+]
+
+with Pool(processes=len(configs)) as pool:
+    results = pool.map(run_benchmark, configs)
 ```
 
 ## Configuration

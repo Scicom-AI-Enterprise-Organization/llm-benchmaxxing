@@ -6,4 +6,10 @@ cloudpickle
 paramiko
 runpod
 tqdm
+scp
 pyremote @ git+https://github.com/Scicom-AI-Enterprise-Organization/pyremote
+
+# Test dependencies
+pytest>=7.0.0
+pytest-mock>=3.10.0
+python-dotenv>=1.0.0

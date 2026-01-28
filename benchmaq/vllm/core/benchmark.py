@@ -1,5 +1,6 @@
 import subprocess
 import sys
+import os
 
 
 def run_benchmark(model_path, port, output_dir, result_name, ctx, output_len, num_prompts, concurrency, save_results=False):
@@ -32,7 +33,7 @@ def run_benchmark(model_path, port, output_dir, result_name, ctx, output_len, nu
             "--result-filename", f"{result_name}.json",
         ])
 
-    # Stream output live
+    # Stream output live and capture for log file
     process = subprocess.Popen(
         cmd,
         stdout=subprocess.PIPE,
@@ -41,7 +42,20 @@ def run_benchmark(model_path, port, output_dir, result_name, ctx, output_len, nu
         bufsize=1
     )
 
+    log_lines = []
     for line in process.stdout:
         print(line, end='', flush=True)
+        # Filter out APIServer logs
+        if "(APIServer)" not in line:
+            log_lines.append(line)
 
     process.wait()
+
+    # Save console output to .txt log file (without APIServer logs)
+    if save_results:
+        os.makedirs(output_dir, exist_ok=True)
+        log_path = os.path.join(output_dir, f"{result_name}.txt")
+        with open(log_path, "w") as f:
+            f.write(f"BENCHMARK: {result_name}\n")
+            f.write("=" * 64 + "\n")
+            f.writelines(log_lines)

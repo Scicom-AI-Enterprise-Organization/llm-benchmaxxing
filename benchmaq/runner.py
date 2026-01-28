@@ -16,6 +16,119 @@ import yaml
 SUPPORTED_ENGINES = ["vllm"]
 
 
+def _write_local_logs_from_dict(config: dict, logs: dict):
+    """Write benchmark logs to local .txt files."""
+    if not logs:
+        print("No logs to save")
+        return
+    
+    # Get output_dir from config
+    output_dir = "./benchmark_results"
+    save_results = False
+    for run_cfg in config.get("runs", []):
+        benchmark_cfg = run_cfg.get("benchmark", {})
+        if benchmark_cfg.get("save_results"):
+            save_results = True
+            output_dir = benchmark_cfg.get("output_dir", "./benchmark_results")
+            break
+    
+    if not save_results:
+        print("save_results is False, skipping log files")
+        return
+    
+    output_dir = output_dir.lstrip("./")
+    os.makedirs(output_dir, exist_ok=True)
+    
+    for result_name, log_lines in logs.items():
+        log_path = os.path.join(output_dir, f"{result_name}.txt")
+        with open(log_path, "w") as f:
+            f.write(f"BENCHMARK: {result_name}\n")
+            f.write("=" * 64 + "\n")
+            for line in log_lines:
+                f.write(line + "\n")
+        print(f"  Saved: {result_name}.txt")
+
+
+def _download_results(config: dict, remote_cfg: dict):
+    """Download benchmark results (.json and .txt) from remote pod to local machine."""
+    import paramiko
+    from scp import SCPClient
+    
+    # Get output_dir from config
+    output_dir = "./benchmark_results"
+    for run_cfg in config.get("runs", []):
+        benchmark_cfg = run_cfg.get("benchmark", {})
+        if benchmark_cfg.get("save_results"):
+            output_dir = benchmark_cfg.get("output_dir", "./benchmark_results")
+            break
+    
+    host = remote_cfg["host"]
+    port = remote_cfg.get("port", 22)
+    username = remote_cfg.get("username", "root")
+    key_filename = remote_cfg.get("key_filename")
+    
+    # Expand key path
+    if key_filename:
+        key_filename = os.path.expanduser(key_filename)
+    
+    print(f"Connecting to {host}:{port}...")
+    
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    
+    try:
+        ssh.connect(host, port=port, username=username, key_filename=key_filename)
+        
+        # Check if results directory exists on remote
+        stdin, stdout, stderr = ssh.exec_command(f"ls -la {output_dir} 2>/dev/null || echo 'NOT_FOUND'")
+        output = stdout.read().decode()
+        
+        if "NOT_FOUND" in output:
+            print(f"No results found at {output_dir} on remote")
+            return
+        
+        # Create local results directory
+        local_output_dir = output_dir.lstrip("./")
+        os.makedirs(local_output_dir, exist_ok=True)
+        
+        # Download both .json and .txt results using SCP
+        print(f"Downloading results from {output_dir} to {local_output_dir}/...")
+        
+        with SCPClient(ssh.get_transport()) as scp:
+            # List .json files and download each
+            stdin, stdout, stderr = ssh.exec_command(f"ls {output_dir}/*.json 2>/dev/null")
+            json_files = stdout.read().decode().strip().split("\n")
+            
+            for remote_file in json_files:
+                if remote_file:
+                    filename = os.path.basename(remote_file)
+                    local_file = os.path.join(local_output_dir, filename)
+                    try:
+                        scp.get(remote_file, local_file)
+                        print(f"  Downloaded: {filename}")
+                    except Exception as e:
+                        print(f"  Failed to download {filename}: {e}")
+            
+            # List .txt files and download each
+            stdin, stdout, stderr = ssh.exec_command(f"ls {output_dir}/*.txt 2>/dev/null")
+            txt_files = stdout.read().decode().strip().split("\n")
+            
+            for remote_file in txt_files:
+                if remote_file:
+                    filename = os.path.basename(remote_file)
+                    local_file = os.path.join(local_output_dir, filename)
+                    try:
+                        scp.get(remote_file, local_file)
+                        print(f"  Downloaded: {filename}")
+                    except Exception as e:
+                        print(f"  Failed to download {filename}: {e}")
+        
+        print(f"Results saved to {local_output_dir}/")
+        
+    finally:
+        ssh.close()
+
+
 def run_e2e(config: dict):
     """
     End-to-end benchmark execution with RunPod:
@@ -71,6 +184,8 @@ def run_e2e(config: dict):
         "env": env_cfg if env_cfg else None,
         "ssh_key_path": ssh_key_path,
         "wait_for_ready": True,
+        "deploy_retries": pod_cfg.get("deploy_retries", 10),
+        "deploy_retry_interval": pod_cfg.get("deploy_retry_interval", 30.0),
     }
     
     pod_id = None
@@ -109,11 +224,30 @@ def run_e2e(config: dict):
         print("STEP 2: RUNNING BENCHMARKS")
         print("=" * 64)
         
+        # Inject pod name into run names for result identification
+        pod_name = instance.get('name', '')
+        if pod_name:
+            for run_cfg in config.get("runs", []):
+                original_name = run_cfg.get("name", "benchmark")
+                run_cfg["name"] = f"{pod_name}_{original_name}"
+        
+        # Run benchmarks
         run_remote(config, auto_remote_cfg)
+        
+        # Download results (.json and .txt) from remote pod
+        print()
+        print("=" * 64)
+        print("STEP 3: DOWNLOADING RESULTS")
+        print("=" * 64)
+        
+        try:
+            _download_results(config, auto_remote_cfg)
+        except Exception as e:
+            print(f"Warning: Failed to download results: {e}")
         
         print()
         print("=" * 64)
-        print("STEP 3: CLEANING UP POD")
+        print("STEP 4: CLEANING UP POD")
         print("=" * 64)
         
     except Exception as e:
@@ -320,9 +454,24 @@ def run_remote(config: dict, remote_cfg: dict):
                 ])
 
             process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+            log_lines = []
             for line in process.stdout:
                 print(line, end='', flush=True)
+                # Filter out APIServer logs for storage
+                if "(APIServer)" not in line:
+                    log_lines.append(line.rstrip('\n'))
             process.wait()
+            
+            # Save .txt log file on remote if save_results is enabled
+            if save_results:
+                log_path = os.path.join(output_dir, f"{result_name}.txt")
+                with open(log_path, "w") as f:
+                    f.write(f"BENCHMARK: {result_name}\n")
+                    f.write("=" * 64 + "\n")
+                    for line in log_lines:
+                        f.write(line + "\n")
+                print(f"Saved log: {log_path}")
+                sys.stdout.flush()
 
         def download_model(repo_id, local_dir, hf_token=None):
             print()
@@ -439,20 +588,37 @@ def run_remote(config: dict, remote_cfg: dict):
     print("=" * 64)
     print("Remote execution completed!")
     print("=" * 64)
+    
+    return result
 
 
-def run(config_path: str):
-    """Main entry point for running benchmarks."""
-    if not os.path.isabs(config_path):
-        config_path = os.path.abspath(config_path)
+def run(config_or_path):
+    """
+    Main entry point for running benchmarks.
+    
+    Args:
+        config_or_path: Either a config dict or a path to a YAML config file
+        
+    Returns:
+        Dict with status and results
+    """
+    from typing import Union
+    
+    # Handle both dict and string (path) inputs
+    if isinstance(config_or_path, dict):
+        config = config_or_path
+    else:
+        config_path = config_or_path
+        if not os.path.isabs(config_path):
+            config_path = os.path.abspath(config_path)
 
-    if not os.path.exists(config_path):
-        print(f"Error: Config file not found: {config_path}")
-        sys.exit(1)
+        if not os.path.exists(config_path):
+            print(f"Error: Config file not found: {config_path}")
+            sys.exit(1)
 
-    print(f"Loading config: {config_path}")
-    with open(config_path) as f:
-        config = yaml.safe_load(f)
+        print(f"Loading config: {config_path}")
+        with open(config_path) as f:
+            config = yaml.safe_load(f)
 
     runs = config.get("runs", [])
     if not runs:
@@ -475,16 +641,29 @@ def run(config_path: str):
         print("REMOTE EXECUTION ENABLED")
         print("=" * 64)
         run_remote(config, remote_cfg)
+        
+        # Download results from remote
+        print()
+        print("=" * 64)
+        print("DOWNLOADING RESULTS")
+        print("=" * 64)
+        
+        try:
+            _download_results(config, remote_cfg)
+        except Exception as e:
+            print(f"Warning: Failed to download results: {e}")
+        
+        return {"status": "success", "mode": "remote", "host": remote_cfg.get("host")}
     else:
-        # Import from benchmaxxing.vllm instead of vllm
-        engine_module = importlib.import_module(f"benchmaxxing.{engine}")
-        engine_module.run(config)
+        # Import from benchmaq.vllm instead of vllm
+        engine_module = importlib.import_module(f"benchmaq.{engine}")
+        return engine_module.run(config)
 
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: python -m benchmaxxing.runner <config.yaml>")
-        print("Example: python -m benchmaxxing.runner examples/run_single.yaml")
+        print("Usage: python -m benchmaq.runner <config.yaml>")
+        print("Example: python -m benchmaq.runner examples/run_single.yaml")
         sys.exit(1)
     
     run(sys.argv[1])

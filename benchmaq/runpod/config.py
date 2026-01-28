@@ -29,8 +29,11 @@ def load_config(config_path: str) -> dict:
     
     ssh_key_path = runpod_cfg.get("ssh_private_key")
     
+    # Check config first, then environment variable
+    api_key = runpod_cfg.get("runpod_api_key") or os.environ.get("RUNPOD_API_KEY")
+    
     return {
-        "api_key": runpod_cfg.get("runpod_api_key"),
+        "api_key": api_key,
         "ssh_key_path": ssh_key_path,
         "name": pod.get("name"),
         "gpu_type": pod.get("gpu_type"),

@@ -4,13 +4,13 @@ with open("README.md", "r", encoding="utf-8") as f:
     long_description = f.read()
 
 setup(
-    name="benchmaxxing",
-    version="0.2.0",
+    name="benchmaq",
+    version="0.4.0",
     author="Scicom AI Enterprise",
     description="Seamless scripts for LLM performance benchmarking",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/Scicom-AI-Enterprise-Organization/llm-benchmark",
+    url="https://github.com/Scicom-AI-Enterprise-Organization/llm-benchmaq",
     packages=find_packages(),
     python_requires=">=3.10",
     install_requires=[
@@ -19,6 +19,7 @@ setup(
         "tqdm",
         "cloudpickle",
         "paramiko",
+        "scp",
         "pyremote @ git+https://github.com/Scicom-AI-Enterprise-Organization/pyremote",
         "runpod"
     ],
@@ -33,10 +34,16 @@ setup(
             "vllm==0.11.0",
             "huggingface_hub[cli]",
         ],
+        # Development/testing dependencies
+        "dev": [
+            "pytest>=7.0.0",
+            "pytest-mock>=3.10.0",
+            "python-dotenv>=1.0.0",
+        ],
     },
     entry_points={
         "console_scripts": [
-            "benchmaxxing=benchmaxxing.cli:main",
+            "benchmaq=benchmaq.cli:main",
         ],
     },
     classifiers=[

@@ -64,6 +64,8 @@ def deploy(
     wait_for_ready: bool = True,
     health_check_retries: int = 60,
     health_check_interval: float = 10.0,
+    deploy_retries: int = 10,
+    deploy_retry_interval: float = 30.0,
     **kwargs,
 ) -> dict:
     if env is None:
@@ -113,8 +115,35 @@ def deploy(
             }}
         }}
         """
-        result = run_graphql_query(query)
-        pod = result["data"]["podRentInterruptable"]
+        
+        # Retry loop for spot instance availability
+        pod = None
+        last_error = None
+        for attempt in range(deploy_retries):
+            try:
+                result = run_graphql_query(query)
+                if "errors" in result:
+                    error_msg = result["errors"][0].get("message", "Unknown error")
+                    if "no longer available" in error_msg.lower() or "could not be created" in error_msg.lower():
+                        last_error = error_msg
+                        print(f"Spot instance unavailable (attempt {attempt + 1}/{deploy_retries}), retrying in {deploy_retry_interval}s...")
+                        time.sleep(deploy_retry_interval)
+                        continue
+                    else:
+                        raise Exception(error_msg)
+                pod = result["data"]["podRentInterruptable"]
+                break
+            except Exception as e:
+                error_str = str(e)
+                if "no longer available" in error_str.lower() or "could not be created" in error_str.lower():
+                    last_error = error_str
+                    print(f"Spot instance unavailable (attempt {attempt + 1}/{deploy_retries}), retrying in {deploy_retry_interval}s...")
+                    time.sleep(deploy_retry_interval)
+                    continue
+                raise
+        
+        if pod is None:
+            raise Exception(f"Failed to create spot instance after {deploy_retries} attempts. Last error: {last_error}")
     else:
         # Use podFindAndDeployOnDemand for on-demand instances
         print("Using on-demand instance")
@@ -185,8 +214,8 @@ def find_by_name(name: str) -> Optional[dict]:
     return None
 
 
-def start(pod_id: str) -> dict:
-    return runpod.resume_pod(pod_id)
+def start(pod_id: str, gpu_count: int = 1) -> dict:
+    return runpod.resume_pod(pod_id, gpu_count=gpu_count)
 
 
 def stop(pod_id: str) -> dict:
