@@ -13,7 +13,9 @@ class VLLMServer:
                  max_num_seqs=None,
                  dtype=None,
                  disable_log_requests=False,
-                 enable_expert_parallel=False):
+                 enable_expert_parallel=False,
+                 health_check_max_attempts=0,
+                 health_check_interval=10.0):
         self.model_path = model_path
         self.port = port
         self.tp = tp
@@ -25,6 +27,8 @@ class VLLMServer:
         self.dtype = dtype
         self.disable_log_requests = disable_log_requests
         self.enable_expert_parallel = enable_expert_parallel
+        self.health_check_max_attempts = health_check_max_attempts
+        self.health_check_interval = health_check_interval
         self.process = None
         self.base_url = f"http://localhost:{port}"
 
@@ -55,11 +59,22 @@ class VLLMServer:
         self.process = subprocess.Popen(cmd, text=True)
         return self._wait_for_health()
 
-    def _wait_for_health(self, max_attempts=200, interval=5.0):
+    def _wait_for_health(self):
+        """Wait for vLLM server to become healthy.
+        
+        If health_check_max_attempts is 0, wait indefinitely until server is healthy.
+        """
         health_url = f"{self.base_url}/health"
-        print(f"Waiting for server at {health_url}...")
+        max_attempts = self.health_check_max_attempts
+        interval = self.health_check_interval
+        
+        if max_attempts == 0:
+            print(f"Waiting for server at {health_url} (unlimited retries, interval={interval}s)...")
+        else:
+            print(f"Waiting for server at {health_url} (max_attempts={max_attempts}, interval={interval}s)...")
 
-        for attempt in range(max_attempts):
+        attempt = 0
+        while True:
             try:
                 resp = requests.get(health_url, timeout=5.0)
                 if resp.status_code == 200:
@@ -70,10 +85,15 @@ class VLLMServer:
 
             if attempt % 10 == 0:
                 print(f"Health check attempt {attempt + 1}...")
+            
+            attempt += 1
+            
+            # If max_attempts is 0, wait indefinitely; otherwise check limit
+            if max_attempts > 0 and attempt >= max_attempts:
+                print(f"Server failed to become healthy after {max_attempts} attempts")
+                return False
+            
             time.sleep(interval)
-
-        print(f"Server failed to become healthy after {max_attempts} attempts")
-        return False
 
     def stop(self):
         if self.process is None or self.process.poll() is not None:

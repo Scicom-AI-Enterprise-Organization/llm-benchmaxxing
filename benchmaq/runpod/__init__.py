@@ -34,9 +34,10 @@ def _ensure_api_key(api_key: Optional[str] = None) -> str:
 
 
 def deploy(
+    config_path: Optional[str] = None,
     api_key: Optional[str] = None,
     *,
-    gpu_type: str,
+    gpu_type: Optional[str] = None,
     gpu_count: int = 1,
     image: str = "runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04",
     disk_size: int = 100,
@@ -54,13 +55,97 @@ def deploy(
     health_check_interval: float = 10.0,
     **kwargs,
 ) -> Dict[str, Any]:
-    """Deploy a RunPod GPU pod."""
-    _ensure_api_key(api_key)
+    """Deploy a RunPod GPU pod.
+    
+    Can be called with a YAML config file or with individual parameters.
+    
+    Examples:
+        # Using YAML config
+        deploy("runpod-config.yaml")
+        
+        # Using parameters
+        deploy(gpu_type="NVIDIA B200", gpu_count=8)
+        
+        # Mix: YAML config with overrides
+        deploy("config.yaml", gpu_count=4)
+    """
+    import yaml
+    
+    # Load config from YAML if provided
+    if config_path:
+        with open(config_path) as f:
+            config = yaml.safe_load(f)
+        
+        runpod_cfg = config.get("runpod", {})
+        pod_cfg = runpod_cfg.get("pod", {})
+        container_cfg = runpod_cfg.get("container", {})
+        storage_cfg = runpod_cfg.get("storage", {})
+        ports_cfg = runpod_cfg.get("ports", {})
+        env_cfg = runpod_cfg.get("env", {})
+        
+        # Extract values from config (parameters override config)
+        final_api_key = api_key or runpod_cfg.get("runpod_api_key")
+        final_gpu_type = gpu_type or pod_cfg.get("gpu_type")
+        final_gpu_count = gpu_count if gpu_type else pod_cfg.get("gpu_count", 1)
+        final_name = name or pod_cfg.get("name")
+        final_image = image if gpu_type else container_cfg.get("image", image)
+        final_container_disk_size = container_disk_size if gpu_type else container_cfg.get("disk_size", container_disk_size)
+        final_disk_size = disk_size if gpu_type else storage_cfg.get("volume_size", disk_size)
+        final_volume_mount_path = volume_mount_path if gpu_type else storage_cfg.get("mount_path", volume_mount_path)
+        final_secure_cloud = secure_cloud if gpu_type else pod_cfg.get("secure_cloud", secure_cloud)
+        final_ssh_key_path = ssh_key_path or runpod_cfg.get("ssh_private_key")
+        
+        # Instance type: spot vs on_demand
+        instance_type = pod_cfg.get("instance_type", "spot")
+        final_spot = spot if gpu_type else (instance_type == "spot")
+        final_bid_per_gpu = bid_per_gpu or pod_cfg.get("bid_per_gpu")
+        
+        # Ports
+        if ports:
+            final_ports = ports
+        elif ports_cfg:
+            port_list = []
+            for p in ports_cfg.get("http", []):
+                port_list.append(f"{p}/http")
+            for p in ports_cfg.get("tcp", []):
+                port_list.append(f"{p}/tcp")
+            final_ports = ",".join(port_list) if port_list else None
+        else:
+            final_ports = None
+        
+        # Env
+        final_env = env or env_cfg or None
+        
+        # Deploy retries from config
+        deploy_retries = pod_cfg.get("deploy_retries", kwargs.get("deploy_retries", 10))
+        deploy_retry_interval = pod_cfg.get("deploy_retry_interval", kwargs.get("deploy_retry_interval", 30.0))
+        kwargs["deploy_retries"] = deploy_retries
+        kwargs["deploy_retry_interval"] = deploy_retry_interval
+    else:
+        # No config file, use parameters directly
+        if not gpu_type:
+            raise ValueError("gpu_type is required when not using a config file")
+        final_api_key = api_key
+        final_gpu_type = gpu_type
+        final_gpu_count = gpu_count
+        final_name = name
+        final_image = image
+        final_container_disk_size = container_disk_size
+        final_disk_size = disk_size
+        final_volume_mount_path = volume_mount_path
+        final_secure_cloud = secure_cloud
+        final_spot = spot
+        final_bid_per_gpu = bid_per_gpu
+        final_ports = ports
+        final_env = env
+        final_ssh_key_path = ssh_key_path
+    
+    _ensure_api_key(final_api_key)
     return _deploy(
-        gpu_type=gpu_type, gpu_count=gpu_count, image=image, disk_size=disk_size,
-        container_disk_size=container_disk_size, volume_mount_path=volume_mount_path,
-        secure_cloud=secure_cloud, spot=spot, bid_per_gpu=bid_per_gpu, env=env,
-        name=name, ports=ports, ssh_key_path=ssh_key_path, wait_for_ready=wait_for_ready,
+        gpu_type=final_gpu_type, gpu_count=final_gpu_count, image=final_image, disk_size=final_disk_size,
+        container_disk_size=final_container_disk_size, volume_mount_path=final_volume_mount_path,
+        secure_cloud=final_secure_cloud, spot=final_spot, bid_per_gpu=final_bid_per_gpu, env=final_env,
+        name=final_name, ports=final_ports, ssh_key_path=final_ssh_key_path, wait_for_ready=wait_for_ready,
         health_check_retries=health_check_retries, health_check_interval=health_check_interval,
         **kwargs,
     )
