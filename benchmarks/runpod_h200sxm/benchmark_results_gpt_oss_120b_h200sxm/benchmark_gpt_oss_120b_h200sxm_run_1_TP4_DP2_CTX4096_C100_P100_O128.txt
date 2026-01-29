@@ -1,0 +1,46 @@
+BENCHMARK: benchmark_gpt_oss_120b_h200sxm_run_1_TP4_DP2_CTX4096_C100_P100_O128
+================================================================
+Namespace(subparser='bench', bench_type='serve', dispatch_function=<function BenchmarkServingSubcommand.cmd at 0x74bd76097e20>, seed=0, num_prompts=100, dataset_name='random', no_stream=False, dataset_path=None, no_oversample=False, skip_chat_template=False, disable_shuffle=False, custom_output_len=256, spec_bench_output_len=256, spec_bench_category=None, sonnet_input_len=550, sonnet_output_len=150, sonnet_prefix_len=200, sharegpt_output_len=None, blazedit_min_distance=0.0, blazedit_max_distance=1.0, random_input_len=4096, random_output_len=128, random_range_ratio=0.0, random_prefix_len=0, random_batch_size=1, no_reranker=False, random_mm_base_items_per_request=1, random_mm_num_mm_items_range_ratio=0.0, random_mm_limit_mm_per_prompt={'image': 255, 'video': 1}, random_mm_bucket_config={(256, 256, 1): 0.5, (720, 1280, 1): 0.5, (720, 1280, 16): 0.0}, hf_subset=None, hf_split=None, hf_name=None, hf_output_len=None, prefix_repetition_prefix_len=256, prefix_repetition_suffix_len=256, prefix_repetition_num_prefixes=10, prefix_repetition_output_len=128, label=None, backend='vllm', base_url='http://localhost:8000', host='127.0.0.1', port=8000, endpoint='/v1/completions', header=None, max_concurrency=100, model='Scicom-intl/gpt-oss-120b-Malaysian-Reasoning-SFT-v0.1', input_len=None, output_len=None, tokenizer=None, tokenizer_mode='auto', use_beam_search=False, logprobs=None, request_rate=inf, burstiness=1.0, trust_remote_code=False, disable_tqdm=False, num_warmups=0, profile=False, save_result=True, save_detailed=False, append_result=False, metadata=None, result_dir='./benchmark_results_gpt_oss_120b_h200sxm', result_filename='benchmark_gpt_oss_120b_h200sxm_run_1_TP4_DP2_CTX4096_C100_P100_O128.json', ignore_eos=True, percentile_metrics='ttft,tpot,itl,e2el', metric_percentiles='99', goodput=None, request_id_prefix='bench-57da4514-', top_p=None, top_k=None, min_p=None, temperature=None, frequency_penalty=None, presence_penalty=None, repetition_penalty=None, served_model_name=None, lora_modules=None, ramp_up_strategy=None, ramp_up_start_rps=None, ramp_up_end_rps=None, ready_check_timeout_sec=0, extra_body=None)
+INFO 01-28 04:44:30 [datasets.py:612] Sampling input_len from [4096, 4096] and output_len from [128, 128]
+Starting initial single prompt test run...
+Skipping endpoint ready check.
+Starting main benchmark run...
+Traffic request rate: inf
+Burstiness factor: 1.0 (Poisson process)
+Maximum request concurrency: 100
+
+  0%|          | 0/100 [00:00<?, ?it/s]
+  1%|          | 1/100 [00:04<07:08,  4.33s/it]
+  2%|▏         | 2/100 [00:04<03:04,  1.88s/it]
+ 34%|███▍      | 34/100 [00:04<00:04, 14.16it/s]
+100%|██████████| 100/100 [00:04<00:00, 21.28it/s]
+tip: install termplotlib and gnuplot to plot the metrics
+============ Serving Benchmark Result ============
+Successful requests:                     100       
+Failed requests:                         0         
+Maximum request concurrency:             100       
+Benchmark duration (s):                  4.70      
+Total input tokens:                      409600    
+Total generated tokens:                  12800     
+Request throughput (req/s):              21.28     
+Output token throughput (tok/s):         2723.64   
+Peak output token throughput (tok/s):    6900.00   
+Peak concurrent requests:                100.00    
+Total token throughput (tok/s):          89880.23  
+---------------Time to First Token----------------
+Mean TTFT (ms):                          1588.37   
+Median TTFT (ms):                        1607.04   
+P99 TTFT (ms):                           2820.86   
+-----Time per Output Token (excl. 1st token)------
+Mean TPOT (ms):                          23.72     
+Median TPOT (ms):                        23.62     
+P99 TPOT (ms):                           33.48     
+---------------Inter-token Latency----------------
+Mean ITL (ms):                           23.72     
+Median ITL (ms):                         14.74     
+P99 ITL (ms):                            164.77    
+----------------End-to-end Latency----------------
+Mean E2EL (ms):                          4600.49   
+Median E2EL (ms):                        4606.37   
+P99 E2EL (ms):                           4671.35   
+==================================================
