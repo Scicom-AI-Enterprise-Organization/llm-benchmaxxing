@@ -1,0 +1,153 @@
+# Standardized benchmaq configuration for RunPod E2E execution
+#
+# Usage:
+#   benchmaq runpod bench examples/3_config_standardized_runpod.yaml
+#   # or
+#   import benchmaq.runpod.bench as bench
+#   bench.from_yaml("examples/3_config_standardized_runpod.yaml")
+#
+# This will:
+#   1. Deploy a RunPod pod
+#   2. Run all benchmark configurations
+#   3. Download results
+#   4. Delete the pod (also on Ctrl+C)
+
+# RunPod configuration
+runpod:
+  # runpod_api_key: ""  # or set RUNPOD_API_KEY env var
+  ssh_private_key: "/path/to/your/private/key"
+  
+  pod:
+    name: benchmaq_standardized_test
+    gpu_type: "NVIDIA A100 80GB PCIe"
+    gpu_count: 8
+    instance_type: spot  # or "on_demand"
+    secure_cloud: true
+  
+  container:
+    image: runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04
+    disk_size: 300
+  
+  storage:
+    volume_size: 300
+    mount_path: /workspace
+  
+  ports:
+    http: [8888, 8000]
+    tcp: [22]
+  
+  env:
+    HF_HOME: "/workspace/hf_home"
+
+# Remote execution settings (auto-populated from RunPod deploy)
+remote:
+  username: root
+  uv:
+    path: ~/.benchmark-venv
+    python_version: "3.11"
+  dependencies:
+    - vllm==0.15.0
+    - pyyaml
+    - requests
+    - huggingface_hub[hf_transfer]
+    - hf_transfer
+
+# Benchmark configurations (new standardized format)
+benchmark:
+  # Configuration 1: 8-GPU tensor parallel with parameter sweeps
+  - name: tp8_sweep
+    engine: vllm
+    
+    model:
+      repo_id: "meta-llama/Llama-3.1-70B-Instruct"
+      # hf_token: ""  # or set HF_TOKEN env var
+    
+    serve:
+      tensor_parallel_size: 8
+      max_model_len: 32000
+      max_num_seqs: 256
+      gpu_memory_utilization: 0.9
+      disable_log_requests: true
+    
+    bench:
+      # Short context benchmarks
+      - backend: vllm
+        endpoint: /v1/completions
+        dataset_name: random
+        random_input_len: 1024
+        random_output_len: 128
+        num_prompts: 100
+        max_concurrency: 100
+        request_rate: inf
+        ignore_eos: true
+        percentile_metrics: "ttft,tpot,itl,e2el"
+      
+      # Medium context benchmarks
+      - backend: vllm
+        endpoint: /v1/completions
+        dataset_name: random
+        random_input_len: 2048
+        random_output_len: 256
+        num_prompts: 100
+        max_concurrency: 100
+        request_rate: inf
+        ignore_eos: true
+        percentile_metrics: "ttft,tpot,itl,e2el"
+      
+      # Long context benchmarks
+      - backend: vllm
+        endpoint: /v1/completions
+        dataset_name: random
+        random_input_len: 4096
+        random_output_len: 512
+        num_prompts: 50
+        max_concurrency: 50
+        request_rate: inf
+        ignore_eos: true
+        percentile_metrics: "ttft,tpot,itl,e2el"
+      
+      # Very long context benchmarks
+      - backend: vllm
+        endpoint: /v1/completions
+        dataset_name: random
+        random_input_len: 8192
+        random_output_len: 1024
+        num_prompts: 25
+        max_concurrency: 25
+        request_rate: inf
+        ignore_eos: true
+        percentile_metrics: "ttft,tpot,itl,e2el"
+    
+    results:
+      save_result: true
+      result_dir: "/workspace/benchmark_results/tp8"
+      save_detailed: true
+
+  # Configuration 2: Smaller model, single GPU
+  - name: single_gpu_baseline
+    engine: vllm
+    
+    model:
+      repo_id: "meta-llama/Llama-3.1-8B-Instruct"
+    
+    serve:
+      tensor_parallel_size: 1
+      max_model_len: 8192
+      max_num_seqs: 64
+      gpu_memory_utilization: 0.9
+      disable_log_requests: true
+    
+    bench:
+      - backend: vllm
+        endpoint: /v1/completions
+        dataset_name: random
+        random_input_len: 512
+        random_output_len: 64
+        num_prompts: 50
+        max_concurrency: 10
+        request_rate: inf
+        ignore_eos: true
+    
+    results:
+      save_result: true
+      result_dir: "/workspace/benchmark_results/single_gpu"

@@ -1,7 +1,8 @@
 pyyaml
 requests
-vllm==0.11.0
-huggingface_hub[cli]
+vllm==0.15.0
+huggingface_hub[cli,hf_transfer]
+hf_transfer
 cloudpickle
 paramiko
 runpod

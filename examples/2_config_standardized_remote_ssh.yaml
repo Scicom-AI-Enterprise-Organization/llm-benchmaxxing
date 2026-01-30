@@ -1,0 +1,117 @@
+# Standardized benchmaq configuration for Remote SSH execution
+#
+# Usage:
+#   benchmaq vllm bench examples/2_config_standardized_remote_ssh.yaml
+#   # or
+#   import benchmaq.vllm.bench as bench
+#   bench.from_yaml("examples/2_config_standardized_remote_ssh.yaml")
+
+# Remote execution configuration
+remote:
+  host: "your-gpu-server.example.com"  # Replace with your server IP/hostname
+  port: 22
+  username: "root"
+  key_filename: "/path/to/your/private/key"  # SSH private key
+  # password: ""  # Alternative: use password auth instead of key
+  uv:
+    path: "~/.benchmark-venv"
+    python_version: "3.11"
+  dependencies:
+    - vllm==0.15.0
+    - pyyaml
+    - requests
+    - huggingface_hub[hf_transfer]
+    - hf_transfer
+
+# Benchmark configurations (new standardized format)
+benchmark:
+  # Configuration 1: 8-GPU tensor parallel benchmark
+  - name: remote_tp8_benchmark
+    engine: vllm
+    
+    # Model download configuration (local_dir used as serve model path)
+    model:
+      repo_id: "meta-llama/Llama-3.1-70B-Instruct"
+      local_dir: "/workspace/models/llama-3.1-70b"
+      # hf_token: ""  # or set HF_TOKEN env var
+    
+    # vLLM serve arguments (model auto-resolved from model.local_dir)
+    serve:
+      tensor_parallel_size: 8
+      max_model_len: 32000
+      max_num_seqs: 256
+      gpu_memory_utilization: 0.9
+      disable_log_requests: true
+    
+    # vLLM bench serve arguments (array for parameter sweeps)
+    bench:
+      # Sweep 1: Short context
+      - backend: vllm
+        endpoint: /v1/completions
+        dataset_name: random
+        random_input_len: 1024
+        random_output_len: 128
+        num_prompts: 100
+        max_concurrency: 100
+        request_rate: inf
+        ignore_eos: true
+        percentile_metrics: "ttft,tpot,itl,e2el"
+      
+      # Sweep 2: Medium context
+      - backend: vllm
+        endpoint: /v1/completions
+        dataset_name: random
+        random_input_len: 2048
+        random_output_len: 256
+        num_prompts: 100
+        max_concurrency: 100
+        request_rate: inf
+        ignore_eos: true
+        percentile_metrics: "ttft,tpot,itl,e2el"
+      
+      # Sweep 3: Long context
+      - backend: vllm
+        endpoint: /v1/completions
+        dataset_name: random
+        random_input_len: 4096
+        random_output_len: 512
+        num_prompts: 50
+        max_concurrency: 50
+        request_rate: inf
+        ignore_eos: true
+        percentile_metrics: "ttft,tpot,itl,e2el"
+    
+    # Results configuration
+    results:
+      save_result: true
+      result_dir: "/workspace/benchmark_results"
+      save_detailed: true
+
+  # Configuration 2: Different parallelism configuration
+  - name: remote_tp4_benchmark
+    engine: vllm
+    
+    model:
+      repo_id: "meta-llama/Llama-3.1-8B-Instruct"
+    
+    serve:
+      tensor_parallel_size: 4
+      max_model_len: 16000
+      max_num_seqs: 128
+      gpu_memory_utilization: 0.9
+      disable_log_requests: true
+    
+    bench:
+      - backend: vllm
+        endpoint: /v1/completions
+        dataset_name: random
+        random_input_len: 1024
+        random_output_len: 128
+        num_prompts: 100
+        max_concurrency: 100
+        request_rate: inf
+        ignore_eos: true
+    
+    results:
+      save_result: true
+      result_dir: "/workspace/benchmark_results"

@@ -1,3 +1,5 @@
+"""RunPod API client for pod management."""
+
 import os
 import time
 import subprocess
@@ -5,7 +7,6 @@ from typing import Optional
 
 import runpod
 from runpod.api.graphql import run_graphql_query
-from tqdm import tqdm
 
 
 def set_api_key(key: str):
@@ -25,8 +26,7 @@ def _format_env_for_graphql(env: dict) -> str:
 
 
 def get_minimum_bid_price(gpu_type: str, gpu_count: int = 1, secure_cloud: bool = True) -> Optional[float]:
-    """Query the current minimum bid price for a GPU type (per GPU)."""
-    # Query for 1 GPU to get the per-GPU price
+    """Query the current minimum bid price for a GPU type."""
     query = f"""
     query {{
         gpuTypes(input: {{id: "{gpu_type}"}}) {{
@@ -62,12 +62,9 @@ def deploy(
     ports: Optional[str] = None,
     ssh_key_path: Optional[str] = None,
     wait_for_ready: bool = True,
-    health_check_retries: int = 60,
-    health_check_interval: float = 10.0,
-    deploy_retries: int = 10,
-    deploy_retry_interval: float = 30.0,
     **kwargs,
 ) -> dict:
+    """Deploy a RunPod GPU pod."""
     if env is None:
         env = {}
     
@@ -83,8 +80,6 @@ def deploy(
     env_graphql = _format_env_for_graphql(env)
     
     if spot:
-        # Use podRentInterruptable for spot instances
-        # Fetch minimum bid price if not specified
         if bid_per_gpu is not None:
             bid = bid_per_gpu
         else:
@@ -92,7 +87,8 @@ def deploy(
             if bid:
                 print(f"Using spot instance with minimum bid: ${bid}/GPU/hour")
             else:
-                bid = 0.0  # Fallback to 0 if query fails
+                bid = 0.0
+        
         query = f"""
         mutation {{
             podRentInterruptable(input: {{
@@ -116,36 +112,12 @@ def deploy(
         }}
         """
         
-        # Retry loop for spot instance availability
-        pod = None
-        last_error = None
-        for attempt in range(deploy_retries):
-            try:
-                result = run_graphql_query(query)
-                if "errors" in result:
-                    error_msg = result["errors"][0].get("message", "Unknown error")
-                    if "no longer available" in error_msg.lower() or "could not be created" in error_msg.lower():
-                        last_error = error_msg
-                        print(f"Spot instance unavailable (attempt {attempt + 1}/{deploy_retries}), retrying in {deploy_retry_interval}s...")
-                        time.sleep(deploy_retry_interval)
-                        continue
-                    else:
-                        raise Exception(error_msg)
-                pod = result["data"]["podRentInterruptable"]
-                break
-            except Exception as e:
-                error_str = str(e)
-                if "no longer available" in error_str.lower() or "could not be created" in error_str.lower():
-                    last_error = error_str
-                    print(f"Spot instance unavailable (attempt {attempt + 1}/{deploy_retries}), retrying in {deploy_retry_interval}s...")
-                    time.sleep(deploy_retry_interval)
-                    continue
-                raise
-        
-        if pod is None:
-            raise Exception(f"Failed to create spot instance after {deploy_retries} attempts. Last error: {last_error}")
+        result = run_graphql_query(query)
+        if "errors" in result:
+            error_msg = result["errors"][0].get("message", "Unknown error")
+            raise Exception(error_msg)
+        pod = result["data"]["podRentInterruptable"]
     else:
-        # Use podFindAndDeployOnDemand for on-demand instances
         print("Using on-demand instance")
         query = f"""
         mutation {{
@@ -169,6 +141,9 @@ def deploy(
         }}
         """
         result = run_graphql_query(query)
+        if "errors" in result:
+            error_msg = result["errors"][0].get("message", "Unknown error")
+            raise Exception(error_msg)
         pod = result["data"]["podFindAndDeployOnDemand"]
     
     pod_id = pod["id"]
@@ -181,155 +156,99 @@ def deploy(
     }
     
     if wait_for_ready:
-        result = wait_for_pod(
-            pod_id=pod_id,
-            retry=health_check_retries,
-            sleep_time=health_check_interval,
-            ssh_key_path=ssh_key_path,
-        )
-        if not result["ready"]:
-            raise Exception(f"Pod {name} failed to start after {health_check_retries} attempts.")
-        
-        print("\n✓ Done!")
-        if result["ssh"]:
-            instance["ssh"] = result["ssh"]
-            print(f"  SSH: {result['ssh']['command']}")
+        ssh_info = _wait_for_ssh(pod_id, ssh_key_path)
+        if ssh_info:
+            instance["ssh"] = ssh_info
+            print(f"SSH ready: {ssh_info['command']}")
+        else:
+            raise Exception(f"Pod {name} failed to become SSH accessible")
     
     return instance
 
 
-def list_pods() -> list:
-    return runpod.get_pods()
-
-
-def find(pod_id: str) -> dict:
-    return runpod.get_pod(pod_id)
-
-
-def find_by_name(name: str) -> Optional[dict]:
-    pods = runpod.get_pods()
-    for pod in pods:
-        if pod.get("name") == name:
-            return pod
-    return None
-
-
-def start(pod_id: str, gpu_count: int = 1) -> dict:
-    return runpod.resume_pod(pod_id, gpu_count=gpu_count)
-
-
-def stop(pod_id: str) -> dict:
-    return runpod.stop_pod(pod_id)
-
-
-def delete(pod_id: Optional[str] = None, name: Optional[str] = None) -> dict:
-    if name and not pod_id:
-        pod = find_by_name(name)
-        if not pod:
-            raise Exception(f"Pod with name '{name}' not found")
-        pod_id = pod["id"]
+def _wait_for_ssh(pod_id: str, ssh_key_path: Optional[str] = None, timeout: int = 600) -> Optional[dict]:
+    """Wait for pod SSH to be ready. Returns SSH info or None."""
+    print("Waiting for pod to be ready...")
+    start_time = time.time()
     
-    if not pod_id:
-        raise Exception("Either pod_id or name is required")
-    
-    runpod.terminate_pod(pod_id)
-    return {"status": "deleted", "id": pod_id, "name": name}
-
-
-def get_ssh_info(pod_id: str, ssh_key_path: Optional[str] = None) -> Optional[dict]:
-    pod = runpod.get_pod(pod_id)
-    
-    key_path = ssh_key_path or "~/.ssh/id_ed25519"
-    
-    if not pod:
-        return None
-    
-    runtime = pod.get("runtime")
-    
-    if not runtime:
-        return None
-    
-    ports = runtime.get("ports", [])
-    
-    for port in ports:
-        if port.get("privatePort") == 22:
-            ip = port.get("ip")
-            public_port = port.get("publicPort")
-            if ip and public_port:
-                return {
-                    "ip": ip,
-                    "port": public_port,
-                    "command": f"ssh root@{ip} -p {public_port} -i {key_path}"
-                }
+    while time.time() - start_time < timeout:
+        try:
+            pod = runpod.get_pod(pod_id)
+            if not pod:
+                time.sleep(10)
+                continue
+            
+            status = pod.get("desiredStatus")
+            if status != "RUNNING":
+                print(f"  Pod status: {status}")
+                time.sleep(10)
+                continue
+            
+            runtime = pod.get("runtime")
+            if not runtime:
+                time.sleep(10)
+                continue
+            
+            # Get SSH info
+            ports = runtime.get("ports", [])
+            for port in ports:
+                if port.get("privatePort") == 22:
+                    ip = port.get("ip")
+                    public_port = port.get("publicPort")
+                    if ip and public_port:
+                        key_path = ssh_key_path or "~/.ssh/id_ed25519"
+                        ssh_info = {
+                            "ip": ip,
+                            "port": public_port,
+                            "command": f"ssh root@{ip} -p {public_port} -i {key_path}"
+                        }
+                        # Test SSH connection
+                        if _check_ssh(ip, public_port, ssh_key_path):
+                            return ssh_info
+                        print(f"  SSH not ready yet, retrying...")
+            
+            time.sleep(10)
+        except Exception as e:
+            print(f"  Error: {e}")
+            time.sleep(10)
     
     return None
 
 
-def check_ssh(ip: str, port: int, ssh_key_path: Optional[str] = None, timeout: float = 10.0) -> bool:
+def _check_ssh(ip: str, port: int, ssh_key_path: Optional[str] = None) -> bool:
+    """Test SSH connection."""
     key_path = os.path.expanduser(ssh_key_path or "~/.ssh/id_ed25519")
-    
     try:
         cmd = [
             "ssh",
             "-o", "StrictHostKeyChecking=no",
             "-o", "UserKnownHostsFile=/dev/null",
-            "-o", f"ConnectTimeout={int(timeout)}",
+            "-o", "ConnectTimeout=10",
             "-o", "BatchMode=yes",
             "-i", key_path,
             "-p", str(port),
             f"root@{ip}",
             "echo ok"
         ]
-        
-        result = subprocess.run(cmd, capture_output=True, timeout=timeout + 5)
+        result = subprocess.run(cmd, capture_output=True, timeout=15)
         return result.returncode == 0
     except Exception:
         return False
 
 
-def wait_for_pod(
-    pod_id: str,
-    retry: int = 60,
-    sleep_time: float = 10.0,
-    ssh_key_path: Optional[str] = None,
-) -> dict:
-    pbar = tqdm(range(retry), desc="Waiting for pod")
+def delete(pod_id: Optional[str] = None, name: Optional[str] = None) -> dict:
+    """Delete a RunPod pod."""
+    if name and not pod_id:
+        pods = runpod.get_pods()
+        for pod in pods:
+            if pod.get("name") == name:
+                pod_id = pod["id"]
+                break
+        if not pod_id:
+            raise Exception(f"Pod with name '{name}' not found")
     
-    for i in pbar:
-        try:
-            pod = runpod.get_pod(pod_id)
-            
-            if not pod:
-                pbar.set_description("Pod not found...")
-                time.sleep(sleep_time)
-                continue
-            
-            status = pod.get("desiredStatus")
-            runtime = pod.get("runtime")
-            
-            if status != "RUNNING":
-                pbar.set_description(f"Status: {status}")
-                time.sleep(sleep_time)
-                continue
-            
-            if not runtime:
-                pbar.set_description("Waiting for runtime...")
-                time.sleep(sleep_time)
-                continue
-            
-            ssh_info = get_ssh_info(pod_id, ssh_key_path)
-            
-            if ssh_info:
-                pbar.set_description(f"Trying SSH {ssh_info['ip']}:{ssh_info['port']}...")
-                if check_ssh(ssh_info["ip"], ssh_info["port"], ssh_key_path):
-                    pbar.set_description("Pod ready!")
-                    return {"ready": True, "ssh": ssh_info}
-            else:
-                pbar.set_description("Waiting for SSH port...")
-            
-        except Exception as e:
-            pbar.set_description(f"Error: {str(e)[:30]}")
-        
-        time.sleep(sleep_time)
+    if not pod_id:
+        raise Exception("Either pod_id or name is required")
     
-    return {"ready": False, "ssh": None}
+    runpod.terminate_pod(pod_id)
+    return {"status": "deleted", "id": pod_id, "name": name}

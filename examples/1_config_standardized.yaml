@@ -1,0 +1,197 @@
+# Standardized benchmaq configuration
+# All parameters use kwargs that map directly to vLLM CLI args
+#
+# Usage:
+#   benchmaq vllm bench examples/1_config_standardized.yaml
+#   # or
+#   import benchmaq.vllm.bench as bench
+#   bench.from_yaml("examples/1_config_standardized.yaml")
+#
+# Structure:
+#   benchmark:
+#     - name: config_name
+#       engine: vllm
+#       model:            # Optional: for model download
+#         repo_id: "..."  # HuggingFace model ID
+#         local_dir: "."  # Download destination (also used as serve model path)
+#       serve: {...}      # vLLM serve kwargs -> converted to --key-value CLI args
+#       bench: [...]      # Array of vLLM bench serve kwargs (parameter sweep)
+#       results: {...}    # Results/output configuration
+
+benchmark:
+  # Configuration 1: 8-GPU tensor parallel with high throughput settings
+  - name: tp8_high_throughput
+    engine: vllm
+    
+    # Model configuration (uses repo_id directly since no local_dir)
+    model:
+      repo_id: "gfs/01be5b33/GLM-4.7-FP8"
+      # hf_token: ""  # or set HF_TOKEN env var
+    
+    # vLLM serve arguments (model auto-resolved from model.repo_id)
+    serve:
+      tensor_parallel_size: 8
+      max_model_len: 32000
+      max_num_seqs: 256
+      gpu_memory_utilization: 0.85
+      enable_expert_parallel: true
+      disable_log_requests: true
+      tool_call_parser: glm47
+      reasoning_parser: glm45
+      enable_auto_tool_choice: true
+    
+    # vLLM bench serve arguments (array for parameter sweeps)
+    # Each item runs a separate benchmark with the same server
+    bench:
+      # Sweep 1: Short context, high concurrency
+      - backend: vllm
+        endpoint: /v1/completions
+        dataset_name: random
+        random_input_len: 1024
+        random_output_len: 128
+        num_prompts: 100
+        max_concurrency: 100
+        request_rate: inf
+        ignore_eos: true
+        percentile_metrics: "ttft,tpot,itl,e2el"
+      
+      # Sweep 2: Medium context
+      - backend: vllm
+        endpoint: /v1/completions
+        dataset_name: random
+        random_input_len: 2048
+        random_output_len: 256
+        num_prompts: 100
+        max_concurrency: 100
+        request_rate: inf
+        ignore_eos: true
+        percentile_metrics: "ttft,tpot,itl,e2el"
+      
+      # Sweep 3: Long context
+      - backend: vllm
+        endpoint: /v1/completions
+        dataset_name: random
+        random_input_len: 4096
+        random_output_len: 512
+        num_prompts: 50
+        max_concurrency: 50
+        request_rate: inf
+        ignore_eos: true
+        percentile_metrics: "ttft,tpot,itl,e2el"
+      
+      # Sweep 4: Very long context
+      - backend: vllm
+        endpoint: /v1/completions
+        dataset_name: random
+        random_input_len: 8192
+        random_output_len: 1024
+        num_prompts: 25
+        max_concurrency: 25
+        request_rate: inf
+        ignore_eos: true
+        percentile_metrics: "ttft,tpot,itl,e2el"
+    
+    # Results/output configuration
+    results:
+      save_result: true
+      result_dir: "./benchmark_results/tp8"
+      save_detailed: true
+
+  # Configuration 2: 4-GPU tensor parallel + 2-way data parallel
+  - name: tp4_dp2_balanced
+    engine: vllm
+    
+    serve:
+      tensor_parallel_size: 4
+      data_parallel_size: 2
+      max_model_len: 16000
+      max_num_seqs: 128
+      gpu_memory_utilization: 0.9
+      disable_log_requests: true
+    
+    bench:
+      # Short context benchmark
+      - backend: vllm
+        endpoint: /v1/completions
+        dataset_name: random
+        random_input_len: 1024
+        random_output_len: 128
+        num_prompts: 100
+        max_concurrency: 100
+        request_rate: inf
+        ignore_eos: true
+      
+      # Medium context benchmark
+      - backend: vllm
+        endpoint: /v1/completions
+        dataset_name: random
+        random_input_len: 2048
+        random_output_len: 256
+        num_prompts: 100
+        max_concurrency: 100
+        request_rate: inf
+        ignore_eos: true
+    
+    results:
+      save_result: true
+      result_dir: "./benchmark_results/tp4_dp2"
+      save_detailed: true
+
+  # Configuration 3: Single GPU baseline
+  - name: single_gpu_baseline
+    engine: vllm
+    
+    model:
+      repo_id: "meta-llama/Llama-2-7b-chat-hf"
+    
+    serve:
+      tensor_parallel_size: 1
+      max_model_len: 4096
+      max_num_seqs: 64
+      gpu_memory_utilization: 0.9
+      disable_log_requests: true
+    
+    bench:
+      # Quick sanity check
+      - backend: vllm
+        endpoint: /v1/completions
+        dataset_name: random
+        random_input_len: 512
+        random_output_len: 64
+        num_prompts: 50
+        max_concurrency: 10
+        request_rate: inf
+        ignore_eos: true
+    
+    results:
+      save_result: true
+      result_dir: "./benchmark_results/single_gpu"
+
+  # Configuration 4: ShareGPT dataset benchmark (real-world workload)
+  - name: sharegpt_realistic
+    engine: vllm
+    
+    model:
+      repo_id: "meta-llama/Llama-2-7b-chat-hf"
+    
+    serve:
+      tensor_parallel_size: 1
+      max_model_len: 4096
+      max_num_seqs: 128
+      gpu_memory_utilization: 0.9
+      disable_log_requests: true
+    
+    bench:
+      # Using ShareGPT dataset for realistic workload
+      - backend: vllm
+        endpoint: /v1/completions
+        dataset_name: sharegpt
+        dataset_path: "/path/to/ShareGPT_V3_unfiltered_cleaned_split.json"
+        num_prompts: 100
+        max_concurrency: 50
+        request_rate: inf
+    
+    results:
+      save_result: true
+      result_dir: "./benchmark_results/sharegpt"
+      save_detailed: true

@@ -1,0 +1,100 @@
+benchmark:
+  - name: tp2_dp1
+    engine: vllm
+
+    model:
+      repo_id: "Qwen/Qwen2.5-7B-Instruct"
+      local_dir: "/workspace/qwen-2.5-7b"
+      hf_token: ""  # Use HF_TOKEN env var instead
+    
+    serve:
+      tensor_parallel_size: 2
+      max_model_len: 8192
+      max_num_seqs: 128
+      gpu_memory_utilization: 0.9
+      disable_log_requests: true
+    
+    bench:
+      - backend: vllm
+        endpoint: /v1/completions
+        dataset_name: random
+        random_input_len: 512
+        random_output_len: 128
+        num_prompts: 50
+        max_concurrency: 50
+        request_rate: inf
+        ignore_eos: true
+      
+      - backend: vllm
+        endpoint: /v1/completions
+        dataset_name: random
+        random_input_len: 1024
+        random_output_len: 256
+        num_prompts: 50
+        max_concurrency: 50
+        request_rate: inf
+        ignore_eos: true
+      
+      - backend: vllm
+        endpoint: /v1/completions
+        dataset_name: random
+        random_input_len: 2048
+        random_output_len: 512
+        num_prompts: 30
+        max_concurrency: 30
+        request_rate: inf
+        ignore_eos: true
+    
+    results:
+      save_result: true
+      result_dir: "./benchmark_results"
+      save_detailed: true
+
+  - name: tp1_dp1
+    engine: vllm
+
+    model:
+      local_dir: "/workspace/qwen-2.5-7b"
+    
+    serve:
+      tensor_parallel_size: 1
+      max_model_len: 8192
+      max_num_seqs: 128
+      gpu_memory_utilization: 0.9
+      disable_log_requests: true
+    
+    bench:
+      - backend: vllm
+        endpoint: /v1/completions
+        dataset_name: random
+        random_input_len: 512
+        random_output_len: 128
+        num_prompts: 50
+        max_concurrency: 50
+        request_rate: inf
+        ignore_eos: true
+      
+      - backend: vllm
+        endpoint: /v1/completions
+        dataset_name: random
+        random_input_len: 1024
+        random_output_len: 256
+        num_prompts: 50
+        max_concurrency: 50
+        request_rate: inf
+        ignore_eos: true
+      
+      - backend: vllm
+        endpoint: /v1/completions
+        dataset_name: random
+        random_input_len: 2048
+        random_output_len: 512
+        num_prompts: 30
+        max_concurrency: 30
+        request_rate: inf
+        ignore_eos: true
+    
+    results:
+      save_result: true
+      result_dir: "./benchmark_results"
+      save_detailed: true

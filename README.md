@@ -44,46 +44,22 @@ uv pip install "benchmaq @ git+https://github.com/Scicom-AI-Enterprise-Organizat
 # Install with vllm
 uv pip install "benchmaq[vllm] @ git+https://github.com/Scicom-AI-Enterprise-Organization/llm-benchmaq.git"
 
-# single run
-benchmaq bench examples/1_run_single.yaml
-
-# multiple run
-benchmaq bench examples/2_run_multiple.yaml
+# Run benchmark
+benchmaq vllm bench examples/5_example_local_config.yaml
 ```
 
 ### 2. Benchmark Remotely via SSH
 
 ```bash
-benchmaq bench examples/3_remote_gpu_ssh_password.yaml
+benchmaq vllm bench examples/5_example_remote_config.yaml
 ```
 
-### 3. Benchmark Remotely on Runpod
+### 3. End-to-End RunPod Benchmark
 
-#### Deploy RunPod Instance
+Deploys a pod, runs benchmarks, downloads results, and deletes the pod automatically:
 
 ```bash
-benchmaq runpod deploy examples/4_remote_gpu_runpod.yaml
-```
-
-Output:
-```
-Pod created: abc123xyz
-✓ Done!
-  SSH: ssh root@1.2.3.4 -p 12345 -i ~/.ssh/id_ed25519
-```
-
-#### Run Benchmarks
-
-Copy the SSH info to your config's `remote` section, then:
-
-```bash
-benchmaq bench examples/4_remote_gpu_runpod.yaml
-```
-
-#### Delete RunPod Instance
-
-```bash
-benchmaq runpod delete examples/4_remote_gpu_runpod.yaml
+benchmaq runpod bench examples/6_example_runpod_config.yaml
 ```
 
 ## Python API
@@ -92,32 +68,15 @@ benchmaq runpod delete examples/4_remote_gpu_runpod.yaml
 import benchmaq
 
 # Run benchmark (local or remote SSH)
-benchmaq.bench("examples/1_run_single.yaml")
-benchmaq.bench("examples/3_remote_gpu_ssh_password.yaml")
-
-# Runpod end-to-end: deploy -> benchmark -> cleanup
-benchmaq.runpod.bench("examples/5_config_runpod.yaml")
-
-# Runpod deploy / delete
-benchmaq.runpod.deploy("examples/4_remote_gpu_runpod.yaml")
-benchmaq.runpod.delete("examples/4_remote_gpu_runpod.yaml")
+benchmaq.vllm.bench.from_yaml("examples/5_example_local_config.yaml")
+benchmaq.vllm.bench.from_yaml("examples/5_example_remote_config.yaml")
 ```
 
-### Multiprocessing (Parallel Benchmarks)
-
 ```python
-from multiprocessing import Pool
+import benchmaq
 
-# run_benchmark is a module-level function that supports multiprocessing
-from benchmaq.runpod import run_benchmark
-
-configs = [
-    "examples/5_config_runpod_multiprocess_1.yaml",
-    "examples/5_config_runpod_multiprocess_2.yaml",
-]
-
-with Pool(processes=len(configs)) as pool:
-    results = pool.map(run_benchmark, configs)
+# Runpod end-to-end: deploy -> benchmark -> cleanup
+benchmaq.runpod.bench.from_yaml("examples/6_example_runpod_config.yaml")
 ```
 
 ## Config Format
