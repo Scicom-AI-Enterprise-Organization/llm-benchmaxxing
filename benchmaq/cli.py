@@ -3,8 +3,10 @@
 benchmaq CLI - LLM benchmarking toolkit
 
 Usage:
-    benchmaq vllm bench <config.yaml>      # Run vLLM benchmark (local or remote SSH)
-    benchmaq runpod bench <config.yaml>    # End-to-end RunPod benchmark
+    benchmaq bench <config.yaml>              # Run benchmark directly (reads 'benchmark' key)
+    benchmaq vllm bench <config.yaml>         # Run vLLM benchmark (local or remote SSH)
+    benchmaq runpod bench <config.yaml>       # End-to-end RunPod benchmark
+    benchmaq sky bench --config <file>        # End-to-end SkyPilot benchmark
 """
 import os
 import sys
@@ -18,11 +20,23 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  benchmaq vllm bench config.yaml      Run vLLM benchmark from YAML config
-  benchmaq runpod bench config.yaml    End-to-end RunPod benchmark (deploy -> bench -> delete)
+  benchmaq bench config.yaml              Run benchmark directly from YAML config
+  benchmaq vllm bench config.yaml         Run vLLM benchmark from YAML config
+  benchmaq runpod bench config.yaml       End-to-end RunPod benchmark (deploy -> bench -> delete)
+  benchmaq sky bench -c config.yaml       End-to-end SkyPilot benchmark (launch -> bench -> down)
         """
     )
     subparsers = parser.add_subparsers(dest="command")
+
+    # =================================================================
+    # bench command (direct execution, used by remote runners)
+    # =================================================================
+    bench_parser = subparsers.add_parser(
+        "bench",
+        help="Run benchmark directly from YAML config",
+        description="Run benchmarks directly (reads 'benchmark' key from config)"
+    )
+    bench_parser.add_argument("config", help="Path to YAML config file")
 
     # =================================================================
     # vllm command
@@ -60,12 +74,56 @@ Examples:
     )
     runpod_bench_parser.add_argument("config", help="Path to YAML config file")
 
+    # =================================================================
+    # sky command (SkyPilot)
+    # =================================================================
+    sky_parser = subparsers.add_parser(
+        "sky",
+        help="SkyPilot benchmarking commands",
+        description="Run end-to-end benchmarks on SkyPilot-managed cloud infrastructure"
+    )
+    sky_subparsers = sky_parser.add_subparsers(dest="sky_command")
+
+    # sky bench
+    sky_bench_parser = sky_subparsers.add_parser(
+        "bench",
+        help="End-to-end SkyPilot benchmark (launch -> bench -> down)",
+        description="Launch a SkyPilot cluster, run benchmarks, and tear down the cluster"
+    )
+    sky_bench_parser.add_argument(
+        "--config", "-c",
+        required=True,
+        help="Path to YAML config file (referenced as $config in the YAML)"
+    )
+
     args = parser.parse_args()
+
+    # =================================================================
+    # Handle bench command (direct execution)
+    # =================================================================
+    if args.command == "bench":
+        from .vllm.bench import from_yaml
+        
+        config_path = args.config
+        if not os.path.exists(config_path):
+            print(f"Error: Config file not found: {config_path}")
+            sys.exit(1)
+        
+        print(f"Running benchmark from: {config_path}")
+        result = from_yaml(config_path)
+        
+        if result.get("status") == "success":
+            print("\n" + "=" * 64)
+            print("BENCHMARK COMPLETED SUCCESSFULLY")
+            print("=" * 64)
+        else:
+            print(f"\nError: {result.get('error', 'Unknown error')}")
+            sys.exit(1)
 
     # =================================================================
     # Handle vllm command
     # =================================================================
-    if args.command == "vllm":
+    elif args.command == "vllm":
         if args.vllm_command == "bench":
             from .vllm.bench import from_yaml
             
@@ -119,6 +177,36 @@ Examples:
                 sys.exit(1)
         else:
             runpod_parser.print_help()
+
+    # =================================================================
+    # Handle sky command (SkyPilot)
+    # =================================================================
+    elif args.command == "sky":
+        if args.sky_command == "bench":
+            from .skypilot.bench import from_yaml
+            
+            config_path = args.config
+            if not os.path.exists(config_path):
+                print(f"Error: Config file not found: {config_path}")
+                sys.exit(1)
+            
+            print(f"Running SkyPilot benchmark from: {config_path}")
+            result = from_yaml(config_path)
+            
+            if result.get("status") == "success":
+                print("\n" + "=" * 64)
+                print("SKYPILOT BENCHMARK COMPLETED SUCCESSFULLY")
+                print("=" * 64)
+                print(f"Cluster: {result.get('cluster_name')}")
+                print(f"Job ID: {result.get('job_id')}")
+            elif result.get("status") == "interrupted":
+                print("\nBenchmark was interrupted by user")
+                sys.exit(130)
+            else:
+                print(f"\nError: {result.get('error', 'Unknown error')}")
+                sys.exit(1)
+        else:
+            sky_parser.print_help()
 
     else:
         parser.print_help()

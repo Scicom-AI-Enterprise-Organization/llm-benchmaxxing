@@ -25,7 +25,7 @@ Seamless scripts for LLM performance benchmarking, written in Northern Malaysia 
 
 ## Installation
 
-Easily using UV,
+Using UV (recommended):
 
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -38,14 +38,14 @@ uv pip install "benchmaq @ git+https://github.com/Scicom-AI-Enterprise-Organizat
 
 ## Usage
 
-### 1. Benchmark locally (GPU Server)
+### 1. Benchmark Locally (GPU Server)
 
 ```bash
 # Install with vllm
 uv pip install "benchmaq[vllm] @ git+https://github.com/Scicom-AI-Enterprise-Organization/llm-benchmaq.git"
 
 # Run benchmark
-benchmaq vllm bench examples/5_example_local_config.yaml
+benchmaq vllm bench examples/4_example_local_config.yaml
 ```
 
 ### 2. Benchmark Remotely via SSH
@@ -62,21 +62,34 @@ Deploys a pod, runs benchmarks, downloads results, and deletes the pod automatic
 benchmaq runpod bench examples/6_example_runpod_config.yaml
 ```
 
+### 4. End-to-End SkyPilot Benchmark
+
+Launches a cluster on any cloud, runs benchmarks, downloads results, and tears down automatically:
+
+```bash
+# Authenticate with SkyPilot first
+sky auth
+
+# Run benchmark
+benchmaq sky bench examples/7_example_skypilot_config.yaml
+```
+
+See [benchmaq/skypilot/README.md](./benchmaq/skypilot/README.md) for more details.
+
 ## Python API
 
 ```python
 import benchmaq
 
 # Run benchmark (local or remote SSH)
-benchmaq.vllm.bench.from_yaml("examples/5_example_local_config.yaml")
+benchmaq.vllm.bench.from_yaml("examples/4_example_local_config.yaml")
 benchmaq.vllm.bench.from_yaml("examples/5_example_remote_config.yaml")
-```
 
-```python
-import benchmaq
-
-# Runpod end-to-end: deploy -> benchmark -> cleanup
+# RunPod end-to-end: deploy -> benchmark -> cleanup
 benchmaq.runpod.bench.from_yaml("examples/6_example_runpod_config.yaml")
+
+# SkyPilot end-to-end: launch -> benchmark -> download -> cleanup
+benchmaq.skypilot.bench.from_yaml("examples/7_example_skypilot_config.yaml")
 ```
 
 ## Config Format
@@ -85,6 +98,6 @@ See [examples/](./examples/) for more config samples.
 
 ## Unit & Integration Test
 
-```
+```bash
 uv run python -m pytest tests/ -v -s
 ```

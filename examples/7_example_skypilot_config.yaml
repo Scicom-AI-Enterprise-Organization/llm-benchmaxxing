@@ -1,0 +1,141 @@
+# SkyPilot Benchmark Configuration
+# 
+# This config is used for end-to-end SkyPilot benchmarking:
+#   benchmaq sky bench --config examples/7_example_skypilot_config.yaml
+#
+# The $config variable in the run section will be replaced with the --config path.
+#
+# Prerequisites:
+#   1. Authenticate with SkyPilot: sky auth
+#   2. Or set environment variables for remote API server:
+#      export SKYPILOT_API_SERVER_URL="https://your-api.example.com"
+#      export SKYPILOT_API_KEY="your-api-key"
+
+# =================================================================
+# SkyPilot Task Configuration
+# This section is passed directly to sky.Task.from_yaml_str()
+# See: https://docs.skypilot.co/en/latest/reference/yaml-spec.html
+# =================================================================
+skypilot:
+  name: benchmark_2_a100_pcie_qwen_3333333
+
+  # Working directory - synced to the cluster
+  workdir: .
+
+  # Resource requirements
+  resources:
+    accelerators: A100-80GB:2
+    disk_size: 500  # GB for model storage
+
+    # Try these clouds in order of pref erence
+    any_of:
+      - cloud: runpod
+      - cloud: aws
+      - cloud: gcp
+
+  # Environment variables
+  envs:
+    HF_TOKEN: ""  # Set your HuggingFace token here or use HF_TOKEN env var
+
+  # Setup commands - run once when cluster is created
+  setup: |
+    set -e
+
+    # Install uv for fast Python environment management
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    export PATH="$HOME/.local/bin:$PATH"
+    
+    # Create virtual environment and install dependencies
+    uv venv --python 3.11
+    source .venv/bin/activate
+    uv pip install "benchmaq[vllm] @ git+https://github.com/Scicom-AI-Enterprise-Organization/llm-benchmaq.git"
+
+  # Run commands - executed after setup
+  run: |
+    set -e
+    
+    export PATH="$HOME/.local/bin:$PATH"
+    source .venv/bin/activate
+    
+    # Run benchmarks - $config is replaced with the --config path
+    benchmaq vllm bench $config
+
+# =================================================================
+# Benchmark Configuration
+# This section is read by 'benchmaq bench' on the remote cluster
+# =================================================================
+benchmark:
+  # First benchmark configuration: tensor parallel = 2
+  - name: tp1_dp1
+    engine: vllm
+
+    model:
+      repo_id: "Qwen/Qwen2.5-7B-Instruct"
+      local_dir: "/workspace/qwen-7b"
+      # hf_token: ""  # Use HF_TOKEN env var instead
+    
+    serve:
+      max_model_len: 8192
+      max_num_seqs: 128
+      gpu_memory_utilization: 0.9
+      disable_log_requests: true
+    
+    bench:
+      # Short input, short output
+      - backend: vllm
+        endpoint: /v1/completions
+        dataset_name: random
+        random_input_len: 512
+        random_output_len: 128
+        num_prompts: 50
+        max_concurrency: 50
+        request_rate: inf
+        ignore_eos: true
+      
+      # Long input, long output
+      - backend: vllm
+        endpoint: /v1/completions
+        dataset_name: random
+        random_input_len: 2048
+        random_output_len: 512
+        num_prompts: 30
+        max_concurrency: 30
+        request_rate: inf
+        ignore_eos: true
+    
+    results:
+      save_result: true
+      result_dir: "./benchmark_results_tp1_dp1"
+      save_detailed: true
+  
+  - name: tp2_dp1
+    engine: vllm
+
+    model:
+      repo_id: "Qwen/Qwen2.5-7B-Instruct"
+      local_dir: "/workspace/qwen-7b"
+      # hf_token: ""  # Use HF_TOKEN env var instead
+    
+    serve:
+      tensor_parallel_size: 2
+      max_model_len: 8192
+      max_num_seqs: 128
+      gpu_memory_utilization: 0.9
+      disable_log_requests: true
+    
+    bench:
+      # Short input, short output
+      - backend: vllm
+        endpoint: /v1/completions
+        dataset_name: random
+        random_input_len: 512
+        random_output_len: 128
+        num_prompts: 50
+        max_concurrency: 50
+        request_rate: inf
+        ignore_eos: true
+    
+    results:
+      save_result: true
+      result_dir: "./benchmark_results_tp2_dp1"
+      save_detailed: true

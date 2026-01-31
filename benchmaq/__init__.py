@@ -7,14 +7,20 @@ Usage:
     import benchmaq.runpod.bench as bench
     result = bench.from_yaml("config.yaml")
 
+    import benchmaq.skypilot.bench as bench
+    result = bench.from_yaml("config.yaml")
+
 CLI:
+    benchmaq bench config.yaml
     benchmaq vllm bench config.yaml
     benchmaq runpod bench config.yaml
+    benchmaq sky bench -c config.yaml
 """
 
-__version__ = "0.5.0"
+__version__ = "0.5.1"
 
 from . import vllm
 from . import runpod
+from . import skypilot
 
-__all__ = ["__version__", "vllm", "runpod"]
+__all__ = ["__version__", "vllm", "runpod", "skypilot"]
