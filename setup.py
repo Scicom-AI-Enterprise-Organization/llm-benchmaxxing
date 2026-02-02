@@ -30,6 +30,12 @@ setup(
             "huggingface_hub[cli,hf_transfer]",
             "hf_transfer",
         ],
+        # For local SGLang benchmarking
+        "sglang": [
+            "sglang[all]",
+            "huggingface_hub[cli,hf_transfer]",
+            "hf_transfer",
+        ],
         # For SkyPilot cloud orchestration
         "skypilot": [
             "skypilot[all]",
@@ -37,6 +43,7 @@ setup(
         # All engines and cloud providers
         "all": [
             "vllm==0.15.0",
+            "sglang[all]",
             "huggingface_hub[cli,hf_transfer]",
             "hf_transfer",
             "skypilot[all]",
