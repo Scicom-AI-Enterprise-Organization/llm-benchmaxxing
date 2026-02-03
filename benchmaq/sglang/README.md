@@ -17,11 +17,8 @@ Benchmarking module for [SGLang](https://github.com/sgl-project/sglang).
 # Install with sglang
 uv pip install "benchmaq[sglang] @ git+https://github.com/Scicom-AI-Enterprise-Organization/llm-benchmaq.git"
 
-# Run benchmark (local)
-benchmaq sglang bench examples/sglang_benchmark.yaml
-
 # Run benchmark (remote via SSH)
-benchmaq sglang bench examples/sglang_remote.yaml
+benchmaq sglang bench examples/8_example_sglang_remote_config.yaml
 ```
 
 ### Python API
@@ -30,7 +27,7 @@ benchmaq sglang bench examples/sglang_remote.yaml
 import benchmaq
 
 # Run benchmark (local or remote SSH)
-benchmaq.sglang.bench.from_yaml("examples/sglang_benchmark.yaml")
+benchmaq.sglang.bench.from_yaml("examples/8_example_sglang_remote_config.yaml")
 ```
 
 ## Config Format
@@ -87,11 +84,47 @@ benchmark:
 
 Arguments use exact SGLang CLI names (snake_case in YAML → kebab-case in CLI).
 
+### Common Server Arguments
+
+| YAML Key | CLI Argument | Description |
+|----------|--------------|-------------|
+| `tensor_parallel_size` | `--tensor-parallel-size` | Tensor parallelism size |
+| `data_parallel_size` | `--data-parallel-size` | Data parallelism size |
+| `mem_fraction_static` | `--mem-fraction-static` | GPU memory fraction (default: 0.9) |
+| `context_length` | `--context-length` | Max context length |
+| `host` | `--host` | Server host (default: 127.0.0.1) |
+| `port` | `--port` | Server port (default: 30000) |
+| `dtype` | `--dtype` | Data type: auto, half, bfloat16, float |
+| `quantization` | `--quantization` | Quantization: awq, fp8, gptq, etc. |
+| `trust_remote_code` | `--trust-remote-code` | Allow custom model code |
+| `log_level` | `--log-level` | Logging level: info, debug, warning |
+
 See [SGLang Server Arguments](https://docs.sglang.io/advanced_features/server_arguments.html) for full list.
 
 ## Benchmark Arguments (bench:)
 
 Arguments use exact SGLang CLI names (snake_case in YAML → kebab-case in CLI).
+
+### Backend Options
+
+| Backend | Endpoint |
+|---------|----------|
+| `sglang` | POST /generate |
+| `sglang-oai` | POST /v1/completions |
+| `sglang-oai-chat` | POST /v1/chat/completions |
+
+### Common Benchmark Arguments
+
+| YAML Key | CLI Argument | Description |
+|----------|--------------|-------------|
+| `backend` | `--backend` | Backend type (see above) |
+| `dataset_name` | `--dataset-name` | Dataset: random, sharegpt, random-ids, image |
+| `num_prompts` | `--num-prompts` | Number of requests |
+| `random_input_len` | `--random-input-len` | Input token length (random dataset) |
+| `random_output_len` | `--random-output-len` | Output token length (random dataset) |
+| `max_concurrency` | `--max-concurrency` | Max concurrent requests |
+| `request_rate` | `--request-rate` | Requests/sec (use `inf` for burst) |
+| `sharegpt_output_len` | `--sharegpt-output-len` | Override output length (sharegpt) |
 
 See [SGLang Bench Serving Guide](https://docs.sglang.io/developer_guide/bench_serving.html) for full list.
 

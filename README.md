@@ -7,7 +7,7 @@ Seamless scripts for LLM performance benchmarking, written in Northern Malaysia 
 1. Seamless remote benchmarking over SSH, automatic venv/setup, upload model, install dependencies, start server and run benchmarks on a remote GPU host, special thanks to [Scicom-AI-Enterprise-Organization/pyremote](https://github.com/Scicom-AI-Enterprise-Organization/pyremote)
 2. End-to-end RunPod integration, deploy, bench and cleanup RunPod instances from CLI or Python API; supports API key, ports and SSH access.
 3. CLI and Python API, `benchmaq` CLI for quick runs and a programmatic `benchmaq.bench(...)` Python API for automation.
-4. Multi-engine architecture, vLLM supported today; additional engines (e.g., TensorRT-LLM, SGLang) planned for future releases.
+4. Multi-engine architecture, vLLM and SGLang supported; additional engines (e.g., TensorRT-LLM) planned for future releases.
 5. Flexible YAML config format with examples, single-run and multi-run configs, run-level overrides, remote and runpod sections.
 6. Parameter sweeps and combinatorial runs, sweep tensor/pipeline/data parallelism (TP/PP/DP), context sizes, concurrency, number of prompts, output lengths, etc.
 7. Serve-mode benchmarking, benchmark against a running inference server (host/port/endpoint) instead of starting a server each run.
@@ -20,8 +20,8 @@ Seamless scripts for LLM performance benchmarking, written in Northern Malaysia 
 ## Supported Engines
 
 - [x] [vLLM](./benchmaq/vllm/) - vLLM inference server
+- [x] [SGLang](./benchmaq/sglang/) - SGLang inference server
 - [ ] TensorRT-LLM - *(coming soon)*
-- [ ] SGLang - *(coming soon)*
 
 ## Installation
 
@@ -44,14 +44,24 @@ uv pip install "benchmaq @ git+https://github.com/Scicom-AI-Enterprise-Organizat
 # Install with vllm
 uv pip install "benchmaq[vllm] @ git+https://github.com/Scicom-AI-Enterprise-Organization/llm-benchmaq.git"
 
-# Run benchmark
+# Run vLLM benchmark
 benchmaq vllm bench examples/4_example_local_config.yaml
+
+# Or install with sglang
+uv pip install "benchmaq[sglang] @ git+https://github.com/Scicom-AI-Enterprise-Organization/llm-benchmaq.git"
+
+# Run SGLang benchmark
+benchmaq sglang bench examples/8_example_sglang_remote_config.yaml
 ```
 
 ### 2. Benchmark Remotely via SSH
 
 ```bash
+# vLLM remote benchmark
 benchmaq vllm bench examples/5_example_remote_config.yaml
+
+# SGLang remote benchmark
+benchmaq sglang bench examples/8_example_sglang_remote_config.yaml
 ```
 
 ### 3. End-to-End RunPod Benchmark
@@ -81,9 +91,12 @@ See [benchmaq/skypilot/README.md](./benchmaq/skypilot/README.md) for more detail
 ```python
 import benchmaq
 
-# Run benchmark (local or remote SSH)
+# vLLM benchmark (local or remote SSH)
 benchmaq.vllm.bench.from_yaml("examples/4_example_local_config.yaml")
 benchmaq.vllm.bench.from_yaml("examples/5_example_remote_config.yaml")
+
+# SGLang benchmark (local or remote SSH)
+benchmaq.sglang.bench.from_yaml("examples/8_example_sglang_remote_config.yaml")
 
 # RunPod end-to-end: deploy -> benchmark -> cleanup
 benchmaq.runpod.bench.from_yaml("examples/6_example_runpod_config.yaml")
