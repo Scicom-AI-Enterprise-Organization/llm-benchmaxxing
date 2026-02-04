@@ -439,12 +439,17 @@ def _download_results_via_ssh(
             
             ssh_connected = True
             
-            if "NOT_FOUND" in result.stdout:
+            # Check if we have actual files (filter out NOT_FOUND)
+            stdout_lines = [line.strip() for line in result.stdout.strip().split("\n") if line.strip()]
+            actual_files = [f for f in stdout_lines if f != "NOT_FOUND" and not f.startswith("ls:")]
+            
+            if not actual_files:
+                # Only return empty if there are truly no files
                 return {
                     "status": "success",
                     "local_dir": local_dir,
                     "files": [],
-                    "message": "No results directory found on remote",
+                    "message": "No results files found on remote",
                 }
             break
             
