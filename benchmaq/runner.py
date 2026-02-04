@@ -11,25 +11,23 @@ import sys
 import hashlib
 
 
-def _get_results_config(config: dict) -> dict:
-    """Extract results configuration from config."""
+def _get_all_result_dirs(config: dict) -> list:
+    """Extract all unique result directories from config."""
+    result_dirs = set()
     for run_cfg in config.get("benchmark", []):
         results_cfg = run_cfg.get("results", {})
         if results_cfg.get("save_result"):
-            return {
-                "save_result": True,
-                "result_dir": results_cfg.get("result_dir", "./benchmark_results"),
-            }
-    return {"save_result": False, "result_dir": "./benchmark_results"}
+            result_dir = results_cfg.get("result_dir", "./benchmark_results")
+            result_dirs.add(result_dir)
+    return list(result_dirs) if result_dirs else ["./benchmark_results"]
 
 
 def _download_results(config: dict, remote_cfg: dict):
-    """Download benchmark results (.json and .txt) from remote to local."""
+    """Download benchmark results (.json, .jsonl, and .txt) from remote to local."""
     import paramiko
     from scp import SCPClient
     
-    results_cfg = _get_results_config(config)
-    output_dir = results_cfg.get("result_dir", "./benchmark_results")
+    result_dirs = _get_all_result_dirs(config)
     
     host = remote_cfg["host"]
     port = remote_cfg.get("port", 22)
@@ -47,46 +45,63 @@ def _download_results(config: dict, remote_cfg: dict):
     try:
         ssh.connect(host, port=port, username=username, key_filename=key_filename)
         
-        stdin, stdout, stderr = ssh.exec_command(f"ls -la {output_dir} 2>/dev/null || echo 'NOT_FOUND'")
-        output = stdout.read().decode()
-        
-        if "NOT_FOUND" in output:
-            print(f"No results found at {output_dir} on remote")
-            return
-        
-        local_output_dir = output_dir.lstrip("./")
-        os.makedirs(local_output_dir, exist_ok=True)
-        
-        print(f"Downloading results from {output_dir} to {local_output_dir}/...")
-        
         with SCPClient(ssh.get_transport()) as scp:
-            stdin, stdout, stderr = ssh.exec_command(f"ls {output_dir}/*.json 2>/dev/null")
-            json_files = stdout.read().decode().strip().split("\n")
-            
-            for remote_file in json_files:
-                if remote_file:
-                    filename = os.path.basename(remote_file)
-                    local_file = os.path.join(local_output_dir, filename)
-                    try:
-                        scp.get(remote_file, local_file)
-                        print(f"  Downloaded: {filename}")
-                    except Exception as e:
-                        print(f"  Failed to download {filename}: {e}")
-            
-            stdin, stdout, stderr = ssh.exec_command(f"ls {output_dir}/*.txt 2>/dev/null")
-            txt_files = stdout.read().decode().strip().split("\n")
-            
-            for remote_file in txt_files:
-                if remote_file:
-                    filename = os.path.basename(remote_file)
-                    local_file = os.path.join(local_output_dir, filename)
-                    try:
-                        scp.get(remote_file, local_file)
-                        print(f"  Downloaded: {filename}")
-                    except Exception as e:
-                        print(f"  Failed to download {filename}: {e}")
-        
-        print(f"Results saved to {local_output_dir}/")
+            for output_dir in result_dirs:
+                stdin, stdout, stderr = ssh.exec_command(f"ls -la {output_dir} 2>/dev/null || echo 'NOT_FOUND'")
+                output = stdout.read().decode()
+                
+                if "NOT_FOUND" in output:
+                    print(f"No results found at {output_dir} on remote")
+                    continue
+                
+                local_output_dir = output_dir.lstrip("./")
+                os.makedirs(local_output_dir, exist_ok=True)
+                
+                print(f"Downloading results from {output_dir} to {local_output_dir}/...")
+                
+                # Download .json files
+                stdin, stdout, stderr = ssh.exec_command(f"ls {output_dir}/*.json 2>/dev/null")
+                json_files = stdout.read().decode().strip().split("\n")
+                
+                for remote_file in json_files:
+                    if remote_file:
+                        filename = os.path.basename(remote_file)
+                        local_file = os.path.join(local_output_dir, filename)
+                        try:
+                            scp.get(remote_file, local_file)
+                            print(f"  Downloaded: {filename}")
+                        except Exception as e:
+                            print(f"  Failed to download {filename}: {e}")
+                
+                # Download .jsonl files (SGLang format)
+                stdin, stdout, stderr = ssh.exec_command(f"ls {output_dir}/*.jsonl 2>/dev/null")
+                jsonl_files = stdout.read().decode().strip().split("\n")
+                
+                for remote_file in jsonl_files:
+                    if remote_file:
+                        filename = os.path.basename(remote_file)
+                        local_file = os.path.join(local_output_dir, filename)
+                        try:
+                            scp.get(remote_file, local_file)
+                            print(f"  Downloaded: {filename}")
+                        except Exception as e:
+                            print(f"  Failed to download {filename}: {e}")
+                
+                # Download .txt files
+                stdin, stdout, stderr = ssh.exec_command(f"ls {output_dir}/*.txt 2>/dev/null")
+                txt_files = stdout.read().decode().strip().split("\n")
+                
+                for remote_file in txt_files:
+                    if remote_file:
+                        filename = os.path.basename(remote_file)
+                        local_file = os.path.join(local_output_dir, filename)
+                        try:
+                            scp.get(remote_file, local_file)
+                            print(f"  Downloaded: {filename}")
+                        except Exception as e:
+                            print(f"  Failed to download {filename}: {e}")
+                
+                print(f"Results saved to {local_output_dir}/")
         
     finally:
         ssh.close()
@@ -394,7 +409,82 @@ def run_remote(config: dict, remote_cfg: dict):
             def __exit__(self, *args):
                 self.stop()
 
-        def run_benchmark(model, port, result_name, results_config=None, **kwargs):
+        class SGLangServer:
+            """SGLang Server manager."""
+            
+            def __init__(self, model_path, port=30000, host="0.0.0.0", **kwargs):
+                self.model_path = model_path
+                self.port = port
+                self.host = host
+                self.serve_kwargs = kwargs
+                self.process = None
+                self.base_url = f"http://localhost:{port}"
+
+            def _build_cmd(self):
+                cmd = ["python", "-m", "sglang.launch_server",
+                       "--model-path", self.model_path,
+                       "--host", self.host,
+                       "--port", str(self.port)]
+                cmd.extend(kwargs_to_cli_args(self.serve_kwargs))
+                return cmd
+
+            def start(self):
+                cmd = self._build_cmd()
+                print(f"Starting SGLang server: {' '.join(cmd)}")
+                sys.stdout.flush()
+                self.process = subprocess.Popen(cmd, text=True)
+                return self._wait_for_health()
+
+            def _wait_for_health(self, max_attempts=200, interval=5.0):
+                health_url = f"{self.base_url}/health"
+                print(f"Waiting for server at {health_url}...")
+                sys.stdout.flush()
+                for attempt in range(max_attempts):
+                    try:
+                        resp = requests.get(health_url, timeout=5.0)
+                        if resp.status_code == 200:
+                            print(f"Server healthy after {attempt + 1} attempts")
+                            sys.stdout.flush()
+                            return True
+                    except requests.RequestException:
+                        pass
+                    if attempt % 10 == 0:
+                        print(f"Health check attempt {attempt + 1}...")
+                        sys.stdout.flush()
+                    time.sleep(interval)
+                print(f"Server failed to become healthy after {max_attempts} attempts")
+                sys.stdout.flush()
+                return False
+
+            def stop(self):
+                if self.process is None or self.process.poll() is not None:
+                    return
+                print(f"Stopping SGLang server on port {self.port}...")
+                sys.stdout.flush()
+                self.process.send_signal(signal.SIGINT)
+                try:
+                    self.process.wait(timeout=30)
+                except subprocess.TimeoutExpired:
+                    print("Force killing server...")
+                    self.process.kill()
+                    self.process.wait()
+                for _ in range(30):
+                    try:
+                        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                            s.bind(("", self.port))
+                        print(f"Port {self.port} released")
+                        break
+                    except OSError:
+                        time.sleep(1.0)
+
+            def __enter__(self):
+                self.start()
+                return self
+
+            def __exit__(self, *args):
+                self.stop()
+
+        def run_vllm_benchmark(model, port, result_name, results_config=None, **kwargs):
             """Run vLLM bench serve."""
             print()
             print("=" * 64)
@@ -445,6 +535,60 @@ def run_remote(config: dict, remote_cfg: dict):
                 print(f"Saved log: {log_path}")
                 sys.stdout.flush()
 
+        def run_sglang_benchmark(model, port, result_name, results_config=None, **kwargs):
+            """Run SGLang bench_serving."""
+            print()
+            print("=" * 64)
+            print(f"BENCHMARK: {result_name}")
+            print("=" * 64)
+            sys.stdout.flush()
+
+            # Build base command
+            cmd = ["python", "-m", "sglang.bench_serving",
+                   "--port", str(port),
+                   "--model", model]
+            
+            # Add host if not using base_url
+            if "base_url" not in kwargs:
+                host = kwargs.pop("host", "127.0.0.1")
+                cmd.extend(["--host", host])
+
+            cmd.extend(kwargs_to_cli_args(kwargs))
+            
+            results_config = results_config or {}
+            save_result = results_config.get("save_result", False)
+            result_dir = results_config.get("result_dir", "./benchmark_results")
+            output_details = results_config.get("output_details", True)
+            
+            if save_result:
+                os.makedirs(result_dir, exist_ok=True)
+                output_file = os.path.join(result_dir, f"{result_name}.jsonl")
+                cmd.extend(["--output-file", output_file])
+                if output_details:
+                    cmd.append("--output-details")
+
+            print(f"Running: {' '.join(cmd)}")
+            sys.stdout.flush()
+            
+            process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+            log_lines = []
+            for line in process.stdout:
+                print(line, end='', flush=True)
+                log_lines.append(line.rstrip('\n'))
+            process.wait()
+            
+            if save_result:
+                log_path = os.path.join(result_dir, f"{result_name}.txt")
+                with open(log_path, "w") as f:
+                    f.write(f"BENCHMARK: {result_name}\n")
+                    f.write("=" * 64 + "\n")
+                    f.write(f"Command: {' '.join(cmd)}\n")
+                    f.write("=" * 64 + "\n\n")
+                    for line in log_lines:
+                        f.write(line + "\n")
+                print(f"Saved log: {log_path}")
+                sys.stdout.flush()
+
         def download_model(repo_id, local_dir, hf_token=None):
             print()
             print("=" * 64)
@@ -485,8 +629,8 @@ def run_remote(config: dict, remote_cfg: dict):
             name = run_cfg.get("name", "benchmark")
             engine = run_cfg.get("engine", "vllm")
             
-            if engine != "vllm":
-                print(f"Skipping {name}: engine '{engine}' not supported")
+            if engine not in ("vllm", "sglang"):
+                print(f"Skipping {name}: engine '{engine}' not supported (use 'vllm' or 'sglang')")
                 continue
             
             model_cfg = run_cfg.get("model", {})
@@ -507,7 +651,6 @@ def run_remote(config: dict, remote_cfg: dict):
                 model_cfg.get("local_dir") or 
                 model_cfg.get("repo_id", "")
             )
-            port = serve_cfg.pop("port", 8000)
             
             if not model:
                 print(f"Skipping {name}: no model specified")
@@ -520,20 +663,37 @@ def run_remote(config: dict, remote_cfg: dict):
             print()
             print("=" * 64)
             print(f"CONFIGURATION: {name}")
+            print(f"Engine: {engine}")
             print(f"Model: {model}")
             print("=" * 64)
             sys.stdout.flush()
             
-            with VLLMServer(model=model, port=port, **serve_cfg) as server:
-                for i, bench_cfg in enumerate(bench_configs):
-                    result_name = generate_result_name(name, i, bench_cfg)
-                    run_benchmark(
-                        model=model,
-                        port=port,
-                        result_name=result_name,
-                        results_config=results_cfg,
-                        **bench_cfg
-                    )
+            if engine == "vllm":
+                port = serve_cfg.pop("port", 8000)
+                with VLLMServer(model=model, port=port, **serve_cfg) as server:
+                    for i, bench_cfg in enumerate(bench_configs):
+                        result_name = generate_result_name(name, i, bench_cfg)
+                        run_vllm_benchmark(
+                            model=model,
+                            port=port,
+                            result_name=result_name,
+                            results_config=results_cfg,
+                            **bench_cfg
+                        )
+            
+            elif engine == "sglang":
+                port = serve_cfg.pop("port", 30000)
+                host = serve_cfg.pop("host", "0.0.0.0")
+                with SGLangServer(model_path=model, port=port, host=host, **serve_cfg) as server:
+                    for i, bench_cfg in enumerate(bench_configs):
+                        result_name = generate_result_name(name, i, bench_cfg)
+                        run_sglang_benchmark(
+                            model=model,
+                            port=port,
+                            result_name=result_name,
+                            results_config=results_cfg,
+                            **bench_cfg
+                        )
             
             time.sleep(5)
 

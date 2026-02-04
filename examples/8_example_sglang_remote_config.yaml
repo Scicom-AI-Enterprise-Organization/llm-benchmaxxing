@@ -1,0 +1,89 @@
+# SGLang Remote Benchmark Configuration
+#
+# Usage:
+#   benchmaq sglang bench examples/8_example_sglang_remote_config.yaml
+
+remote:
+  host: "your-gpu-server.example.com"
+  port: 22
+  username: "root"
+  key_filename: "~/.ssh/id_rsa"
+  uv:
+    path: ~/.venv
+    python_version: "3.11"
+  dependencies:
+    - "benchmaq[sglang] @ git+https://github.com/Scicom-AI-Enterprise-Organization/llm-benchmaq.git"
+
+benchmark:
+  - name: tp1_sglang
+    engine: sglang
+
+    model:
+      repo_id: "Qwen/Qwen2.5-7B-Instruct"
+      local_dir: "/workspace/qwen-7b"
+      # hf_token: ""  # Use HF_TOKEN env var instead
+    
+    serve:
+      tensor_parallel_size: 1
+      mem_fraction_static: 0.9
+      context_length: 8192
+      host: "0.0.0.0"
+      port: 30000
+      log_level: info
+    
+    bench:
+      - backend: sglang
+        dataset_name: random
+        random_input_len: 512
+        random_output_len: 128
+        num_prompts: 50
+        max_concurrency: 50
+        request_rate: inf
+      
+      - backend: sglang
+        dataset_name: random
+        random_input_len: 2048
+        random_output_len: 512
+        num_prompts: 30
+        max_concurrency: 30
+        request_rate: 10
+    
+    results:
+      save_result: true
+      result_dir: "./benchmark_results_sglang"
+      output_details: true
+
+  - name: tp2_sglang
+    engine: sglang
+
+    model:
+      repo_id: "Qwen/Qwen2.5-7B-Instruct"
+      local_dir: "/workspace/qwen-7b"
+    
+    serve:
+      tensor_parallel_size: 2
+      mem_fraction_static: 0.9
+      context_length: 8192
+      host: "0.0.0.0"
+      port: 30000
+      log_level: info
+    
+    bench:
+      - backend: sglang-oai
+        dataset_name: random
+        random_input_len: 512
+        random_output_len: 128
+        num_prompts: 50
+        max_concurrency: 100
+        request_rate: inf
+      
+      - backend: sglang
+        dataset_name: sharegpt
+        num_prompts: 100
+        max_concurrency: 100
+        sharegpt_output_len: 256
+    
+    results:
+      save_result: true
+      result_dir: "./benchmark_results_sglang_tp2"
+      output_details: true

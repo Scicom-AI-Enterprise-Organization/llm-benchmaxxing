@@ -5,6 +5,7 @@ benchmaq CLI - LLM benchmarking toolkit
 Usage:
     benchmaq bench <config.yaml>              # Run benchmark directly (reads 'benchmark' key)
     benchmaq vllm bench <config.yaml>         # Run vLLM benchmark (local or remote SSH)
+    benchmaq sglang bench <config.yaml>       # Run SGLang benchmark (local or remote SSH)
     benchmaq runpod bench <config.yaml>       # End-to-end RunPod benchmark
     benchmaq sky bench --config <file>        # End-to-end SkyPilot benchmark
 """
@@ -22,6 +23,7 @@ def main():
 Examples:
   benchmaq bench config.yaml              Run benchmark directly from YAML config
   benchmaq vllm bench config.yaml         Run vLLM benchmark from YAML config
+  benchmaq sglang bench config.yaml       Run SGLang benchmark from YAML config
   benchmaq runpod bench config.yaml       End-to-end RunPod benchmark (deploy -> bench -> delete)
   benchmaq sky bench -c config.yaml       End-to-end SkyPilot benchmark (launch -> bench -> down)
         """
@@ -55,6 +57,24 @@ Examples:
         description="Run vLLM benchmarks locally or on a remote GPU server via SSH"
     )
     vllm_bench_parser.add_argument("config", help="Path to YAML config file")
+
+    # =================================================================
+    # sglang command
+    # =================================================================
+    sglang_parser = subparsers.add_parser(
+        "sglang",
+        help="SGLang benchmarking commands",
+        description="Run SGLang benchmarks using YAML configuration"
+    )
+    sglang_subparsers = sglang_parser.add_subparsers(dest="sglang_command")
+
+    # sglang bench
+    sglang_bench_parser = sglang_subparsers.add_parser(
+        "bench",
+        help="Run SGLang benchmark from YAML config",
+        description="Run SGLang benchmarks locally or on a remote GPU server via SSH"
+    )
+    sglang_bench_parser.add_argument("config", help="Path to YAML config file")
 
     # =================================================================
     # runpod command
@@ -150,6 +170,37 @@ Examples:
                 sys.exit(1)
         else:
             vllm_parser.print_help()
+
+    # =================================================================
+    # Handle sglang command
+    # =================================================================
+    elif args.command == "sglang":
+        if args.sglang_command == "bench":
+            from .sglang.bench import from_yaml
+            
+            config_path = args.config
+            if not os.path.exists(config_path):
+                print(f"Error: Config file not found: {config_path}")
+                sys.exit(1)
+            
+            print(f"Running SGLang benchmark from: {config_path}")
+            result = from_yaml(config_path)
+            
+            if result.get("status") == "success":
+                print("\n" + "=" * 64)
+                print("BENCHMARK COMPLETED SUCCESSFULLY")
+                print("=" * 64)
+                if result.get("mode") == "remote":
+                    print(f"Mode: Remote ({result.get('host')})")
+                else:
+                    print(f"Total runs: {len(result.get('results', []))}")
+                    for r in result.get("results", []):
+                        print(f"  - {r.get('name', 'unknown')}")
+            else:
+                print(f"\nError: {result.get('error', 'Unknown error')}")
+                sys.exit(1)
+        else:
+            sglang_parser.print_help()
 
     # =================================================================
     # Handle runpod command

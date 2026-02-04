@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as f:
 
 setup(
     name="benchmaq",
-    version="0.5.1",
+    version="0.6.0",
     author="Scicom AI Enterprise",
     description="Seamless scripts for LLM performance benchmarking",
     long_description=long_description,
@@ -30,6 +30,12 @@ setup(
             "huggingface_hub[cli,hf_transfer]",
             "hf_transfer",
         ],
+        # For local SGLang benchmarking
+        "sglang": [
+            "sglang[all]",
+            "huggingface_hub[cli,hf_transfer]",
+            "hf_transfer",
+        ],
         # For SkyPilot cloud orchestration
         "skypilot": [
             "skypilot[all]",
@@ -37,6 +43,7 @@ setup(
         # All engines and cloud providers
         "all": [
             "vllm==0.15.0",
+            "sglang[all]",
             "huggingface_hub[cli,hf_transfer]",
             "hf_transfer",
             "skypilot[all]",

@@ -1,0 +1,92 @@
+# SGLang Benchmark Configuration
+#
+# Usage:
+#   benchmaq sglang bench benchmaq/sglang/examples/sglang_benchmark.yaml
+#
+# This config runs SGLang server and benchmarks locally.
+# All argument names match exact SGLang CLI args (snake_case → --kebab-case).
+
+benchmark:
+  - name: tp1_sglang
+    engine: sglang
+
+    model:
+      repo_id: "Qwen/Qwen2.5-7B-Instruct"
+      local_dir: "/workspace/qwen-7b"
+      # hf_token: ""  # Use HF_TOKEN env var instead
+    
+    serve:
+      # Parallelism (exact CLI arg names)
+      tensor_parallel_size: 1        # --tensor-parallel-size
+      
+      # Memory
+      mem_fraction_static: 0.9       # --mem-fraction-static
+      context_length: 8192           # --context-length
+      
+      # Server
+      host: "0.0.0.0"                # --host
+      port: 30000                    # --port
+      
+      # Logging
+      log_level: info                # --log-level
+    
+    bench:
+      # Short input, short output - burst mode
+      - backend: sglang              # --backend
+        dataset_name: random         # --dataset-name
+        random_input_len: 512        # --random-input-len
+        random_output_len: 128       # --random-output-len
+        num_prompts: 50              # --num-prompts
+        max_concurrency: 50          # --max-concurrency
+        request_rate: inf            # --request-rate (inf = burst)
+      
+      # Long input, long output - controlled rate
+      - backend: sglang
+        dataset_name: random
+        random_input_len: 2048
+        random_output_len: 512
+        num_prompts: 30
+        max_concurrency: 30
+        request_rate: 10             # 10 requests/sec
+    
+    results:
+      save_result: true
+      result_dir: "./benchmark_results_sglang"
+      output_details: true
+
+  - name: tp2_sglang
+    engine: sglang
+
+    model:
+      repo_id: "Qwen/Qwen2.5-7B-Instruct"
+      local_dir: "/workspace/qwen-7b"
+    
+    serve:
+      tensor_parallel_size: 2        # --tensor-parallel-size
+      mem_fraction_static: 0.9       # --mem-fraction-static
+      context_length: 8192           # --context-length
+      host: "0.0.0.0"
+      port: 30000
+      log_level: info
+    
+    bench:
+      # Using OpenAI-compatible endpoint
+      - backend: sglang-oai          # --backend (uses /v1/completions)
+        dataset_name: random
+        random_input_len: 512
+        random_output_len: 128
+        num_prompts: 50
+        max_concurrency: 50
+        request_rate: inf
+      
+      # Using sharegpt dataset
+      - backend: sglang
+        dataset_name: sharegpt       # --dataset-name
+        num_prompts: 100
+        max_concurrency: 50
+        sharegpt_output_len: 256     # --sharegpt-output-len
+    
+    results:
+      save_result: true
+      result_dir: "./benchmark_results_sglang_tp2"
+      output_details: true
