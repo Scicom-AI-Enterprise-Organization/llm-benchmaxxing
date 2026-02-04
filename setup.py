@@ -32,7 +32,7 @@ setup(
         ],
         # For local SGLang benchmarking
         "sglang": [
-            "sglang[all]",
+            "sglang[srt]",
             "huggingface_hub[cli,hf_transfer]",
             "hf_transfer",
         ],
@@ -43,7 +43,7 @@ setup(
         # All engines and cloud providers
         "all": [
             "vllm==0.15.0",
-            "sglang[all]",
+            "sglang[srt]",
             "huggingface_hub[cli,hf_transfer]",
             "hf_transfer",
             "skypilot[all]",
