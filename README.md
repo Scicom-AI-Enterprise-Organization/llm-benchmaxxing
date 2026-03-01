@@ -117,10 +117,10 @@ uv pip install "benchmaq[stt] @ git+https://github.com/Scicom-AI-Enterprise-Orga
 benchmaq vllm stt bench examples/stt_benchmark.yaml
 
 # Run via SkyPilot (A100/H100/H200/B200)
-benchmaq sky bench -c examples/stt_benchmark_skypilot_a100.yaml
+benchmaq sky bench -c stt/examples/stt_benchmark_skypilot_a100.yaml
 ```
 
-See [examples/](./examples/) for all STT configs (`stt_benchmark*.yaml`).
+See [stt/examples/](./stt/examples/) for SkyPilot STT configs.
 
 ## Config Format
 

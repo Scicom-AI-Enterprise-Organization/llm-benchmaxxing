@@ -32,7 +32,7 @@ skypilot:
     HF_TOKEN: ""  # Set your HuggingFace token here or use HF_TOKEN env var
 
   file_mounts:
-    /data/test.wav: examples/sample_20s.wav
+    /data/test.wav: stt/benchmarks/sample_12s.wav
 
   setup: |
     set -e

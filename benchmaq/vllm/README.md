@@ -119,9 +119,9 @@ benchmaq.vllm.stt.bench.from_yaml("examples/stt_benchmark.yaml")
 ### Example Configs
 
 - [Local STT benchmark](../../examples/stt_benchmark.yaml)
-- [SkyPilot A100](../../examples/stt_benchmark_skypilot_a100.yaml)
-- [SkyPilot H100](../../examples/stt_benchmark_skypilot_h100.yaml)
-- [SkyPilot H200](../../examples/stt_benchmark_skypilot_h200.yaml)
-- [SkyPilot B200](../../examples/stt_benchmark_skypilot_b200.yaml)
+- [SkyPilot A100](../../stt/examples/stt_benchmark_skypilot_a100.yaml)
+- [SkyPilot H100](../../stt/examples/stt_benchmark_skypilot_h100.yaml)
+- [SkyPilot H200](../../stt/examples/stt_benchmark_skypilot_h200.yaml)
+- [SkyPilot B200](../../stt/examples/stt_benchmark_skypilot_b200.yaml)
 
 Metrics: throughput (req/s), RTF (Real-Time Factor), processing time (min/max/mean/median).
