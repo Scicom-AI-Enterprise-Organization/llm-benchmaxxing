@@ -105,6 +105,23 @@ benchmaq.runpod.bench.from_yaml("examples/6_example_runpod_config.yaml")
 benchmaq.skypilot.bench.from_yaml("examples/7_example_skypilot_config.yaml")
 ```
 
+### 5. STT (Speech-to-Text) Benchmark
+
+Benchmark Whisper models served via vLLM:
+
+```bash
+# Install with STT support
+uv pip install "benchmaq[stt] @ git+https://github.com/Scicom-AI-Enterprise-Organization/llm-benchmaq.git"
+
+# Run locally
+benchmaq vllm stt bench examples/stt_benchmark.yaml
+
+# Run via SkyPilot (A100/H100/H200/B200)
+benchmaq sky bench -c examples/stt_benchmark_skypilot_a100.yaml
+```
+
+See [examples/](./examples/) for all STT configs (`stt_benchmark*.yaml`).
+
 ## Config Format
 
 See [examples/](./examples/) for more config samples.

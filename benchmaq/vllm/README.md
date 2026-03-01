@@ -91,3 +91,37 @@ benchmark_results/
 ```
 
 Metrics: TTFT, TPOT, ITL, E2EL, throughput.
+
+---
+
+## STT (Speech-to-Text) Benchmark
+
+Benchmark Whisper models served via vLLM for speech-to-text transcription.
+
+### CLI
+
+```bash
+# Install with STT support
+uv pip install "benchmaq[stt] @ git+https://github.com/Scicom-AI-Enterprise-Organization/llm-benchmaq.git"
+
+# Run STT benchmark
+benchmaq vllm stt bench examples/stt_benchmark.yaml
+```
+
+### Python API
+
+```python
+import benchmaq
+
+benchmaq.vllm.stt.bench.from_yaml("examples/stt_benchmark.yaml")
+```
+
+### Example Configs
+
+- [Local STT benchmark](../../examples/stt_benchmark.yaml)
+- [SkyPilot A100](../../examples/stt_benchmark_skypilot_a100.yaml)
+- [SkyPilot H100](../../examples/stt_benchmark_skypilot_h100.yaml)
+- [SkyPilot H200](../../examples/stt_benchmark_skypilot_h200.yaml)
+- [SkyPilot B200](../../examples/stt_benchmark_skypilot_b200.yaml)
+
+Metrics: throughput (req/s), RTF (Real-Time Factor), processing time (min/max/mean/median).
