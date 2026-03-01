@@ -1,0 +1,21 @@
+STT BENCHMARK: whisper-large-v3-turbo-1xh200_n100_c100_rps100_2d695f
+================================================================
+Testing: 100 max concurrent requests
+============================================================
+Results:
+  Total: 100 | Success: 100 | Failed: 0
+  Success Rate: 100.0%
+Timing:
+  Total Time: 1.45s
+  Throughput: 69.14 req/s
+Processing Time per Request:
+  Min: 0.18s | Max: 0.62s
+  Mean: 0.41s | Median: 0.41s
+RTF (Real-Time Factor):
+  Audio file: /data/test.wav
+  Audio duration: 12.27s
+  Mean processing time: 0.41s
+  Mean RTF: 0.034
+  Min RTF: 0.014 | Max RTF: 0.051
+Audio Output:
+   Maybe there is also a benefit that can be done with the EMAGES in Al-Azhar, such as shown by many Indonesian individuals.

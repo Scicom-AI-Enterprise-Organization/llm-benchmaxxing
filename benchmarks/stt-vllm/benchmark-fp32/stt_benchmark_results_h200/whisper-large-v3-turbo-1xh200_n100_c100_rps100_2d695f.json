@@ -1,0 +1,29 @@
+{
+  "benchmark_name": "whisper-large-v3-turbo-1xh200_n100_c100_rps100_2d695f",
+  "model": "/workspace/whisper-large-v3-turbo",
+  "audio_file": "/data/test.wav",
+  "audio_duration_s": 12.27,
+  "num_requests": 100,
+  "max_concurrency": 100,
+  "request_rate": 100.0,
+  "results": {
+    "total": 100,
+    "success": 100,
+    "failed": 0,
+    "success_rate": 100.0,
+    "total_time_s": 2.362,
+    "throughput_rps": 42.344,
+    "processing_time": {
+      "min_s": 0.639,
+      "max_s": 1.533,
+      "mean_s": 1.059,
+      "median_s": 1.086
+    },
+    "rtf": {
+      "mean": 0.086,
+      "min": 0.052,
+      "max": 0.125
+    }
+  },
+  "sample_output": " Maybe there is also a benefit that can be done with the EMAGES in Al-Azhar, such as shown by many Indonesian individuals."
+}

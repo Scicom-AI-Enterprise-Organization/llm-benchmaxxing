@@ -1,0 +1,107 @@
+# STT (Speech-to-Text) Benchmark Configuration with SkyPilot
+#
+# Launches 1x A100 on RunPod via SkyPilot, runs STT benchmarks, downloads results.
+#
+# Usage:
+#   benchmaq sky bench -c examples/stt_benchmark_skypilot.yaml
+#
+# Prerequisites:
+#   1. Authenticate with SkyPilot: sky auth
+#   2. Or set environment variables for remote API server:
+#      export SKYPILOT_API_SERVER_URL="https://your-api.example.com"
+#      export SKYPILOT_API_KEY="your-api-key"
+
+# =================================================================
+# SkyPilot Task Configuration
+# =================================================================
+skypilot:
+  name: stt-benchmark-1xa100
+
+  workdir: .
+
+  resources:
+    accelerators: A100-80GB:1
+    disk_size: 200
+
+    any_of:
+      - cloud: runpod
+
+  envs:
+    HF_TOKEN: ""  # Set your HuggingFace token here or use HF_TOKEN env var
+
+  file_mounts:
+    /data/test.wav: examples/sample_20s.wav
+
+  setup: |
+    set -e
+
+    # Install uv
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    export PATH="$HOME/.local/bin:$PATH"
+
+    # Create virtual environment and install dependencies
+    uv venv --python 3.11
+    source .venv/bin/activate
+    uv pip install "benchmaq[stt] @ git+https://github.com/Scicom-AI-Enterprise-Organization/llm-benchmaq.git@feature/stt-benchmark"
+    uv pip install "vllm[audio]"
+
+  run: |
+    set -e
+
+    export PATH="$HOME/.local/bin:$PATH"
+    source .venv/bin/activate
+
+    # Run STT benchmarks - $config is replaced with the --config path
+    benchmaq vllm stt bench $config
+
+# =================================================================
+# Benchmark Configuration
+# =================================================================
+benchmark:
+  # ---- Whisper Large V3 ----
+  - name: whisper-large-v3-1xa100
+    engine: stt
+    model:
+      repo_id: "openai/whisper-large-v3"
+      local_dir: "/workspace/whisper-large-v3"
+    serve:
+      tensor_parallel_size: 1
+      max_model_len: 448
+      enable_prefix_caching: false
+      disable_log_requests: true
+      gpu_memory_utilization: 0.9
+      dtype: float16
+    bench:
+      - audio_file: "/data/test.wav"
+        num_requests: 100
+        max_concurrency: 100
+        request_rate: 100
+        endpoint: "/v1/audio/transcriptions"
+        language: "en"
+    results:
+      save_result: true
+      result_dir: "./stt_benchmark_results_a100"
+
+  # ---- Whisper Large V3 Turbo ----
+  - name: whisper-large-v3-turbo-1xa100
+    engine: stt
+    model:
+      repo_id: "openai/whisper-large-v3-turbo"
+      local_dir: "/workspace/whisper-large-v3-turbo"
+    serve:
+      tensor_parallel_size: 1
+      max_model_len: 448
+      enable_prefix_caching: false
+      disable_log_requests: true
+      gpu_memory_utilization: 0.9
+      dtype: float16
+    bench:
+      - audio_file: "/data/test.wav"
+        num_requests: 100
+        max_concurrency: 100
+        request_rate: 100
+        endpoint: "/v1/audio/transcriptions"
+        language: "en"
+    results:
+      save_result: true
+      result_dir: "./stt_benchmark_results_a100"

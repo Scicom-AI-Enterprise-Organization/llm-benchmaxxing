@@ -1,0 +1,56 @@
+# STT (Speech-to-Text) Benchmark Configuration
+# Uses vLLM HTTP server to serve Whisper model and benchmarks transcription performance.
+#
+# Usage:
+#   benchmaq vllm stt bench examples/stt_benchmark.yaml
+
+benchmark:
+  # ---- Whisper Large V3 ----
+  - name: whisper-large-v3-stt
+    engine: stt
+    model:
+      repo_id: "openai/whisper-large-v3"
+      local_dir: "/models/whisper-large-v3"
+      # hf_token: ""  # or set HF_TOKEN env var
+    serve:
+      # vLLM serve arguments (snake_case -> --kebab-case)
+      tensor_parallel_size: 1
+      max_model_len: 448
+      enable_prefix_caching: false
+      disable_log_requests: true
+      gpu_memory_utilization: 0.9
+      dtype: auto
+    bench:
+      - audio_file: "examples/sample_10s.wav"
+        num_requests: 100
+        max_concurrency: 100
+        request_rate: 100
+        endpoint: "/v1/audio/transcriptions"
+        language: "en"
+    results:
+      save_result: true
+      result_dir: "./stt_benchmark_results"
+
+  # ---- Whisper Large V3 Turbo ----
+  - name: whisper-large-v3-turbo-stt
+    engine: stt
+    model:
+      repo_id: "openai/whisper-large-v3-turbo"
+      local_dir: "/models/whisper-large-v3-turbo"
+    serve:
+      tensor_parallel_size: 1
+      max_model_len: 448
+      enable_prefix_caching: false
+      disable_log_requests: true
+      gpu_memory_utilization: 0.9
+      dtype: auto
+    bench:
+      - audio_file: "examples/sample_10s.wav"
+        num_requests: 100
+        max_concurrency: 100
+        request_rate: 100
+        endpoint: "/v1/audio/transcriptions"
+        language: "en"
+    results:
+      save_result: true
+      result_dir: "./stt_benchmark_results"

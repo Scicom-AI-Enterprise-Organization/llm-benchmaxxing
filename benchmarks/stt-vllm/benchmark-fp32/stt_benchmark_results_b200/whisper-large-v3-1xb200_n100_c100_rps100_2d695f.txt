@@ -1,0 +1,21 @@
+STT BENCHMARK: whisper-large-v3-1xb200_n100_c100_rps100_2d695f
+================================================================
+Testing: 100 max concurrent requests
+============================================================
+Results:
+  Total: 100 | Success: 100 | Failed: 0
+  Success Rate: 100.0%
+Timing:
+  Total Time: 2.64s
+  Throughput: 37.87 req/s
+Processing Time per Request:
+  Min: 0.68s | Max: 1.72s
+  Mean: 1.26s | Median: 1.30s
+RTF (Real-Time Factor):
+  Audio file: /data/test.wav
+  Audio duration: 12.27s
+  Mean processing time: 1.26s
+  Mean RTF: 0.102
+  Min RTF: 0.055 | Max RTF: 0.140
+Audio Output:
+   There may also be benefits that can be enjoyed by studying the level of young sergeants at Al-Azhar, as proven by many other Indonesian students.

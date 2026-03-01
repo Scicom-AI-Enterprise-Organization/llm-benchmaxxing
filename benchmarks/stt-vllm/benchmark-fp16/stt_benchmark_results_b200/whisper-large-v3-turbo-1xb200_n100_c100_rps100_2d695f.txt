@@ -1,0 +1,21 @@
+STT BENCHMARK: whisper-large-v3-turbo-1xb200_n100_c100_rps100_2d695f
+================================================================
+Testing: 100 max concurrent requests
+============================================================
+Results:
+  Total: 100 | Success: 100 | Failed: 0
+  Success Rate: 100.0%
+Timing:
+  Total Time: 2.59s
+  Throughput: 38.61 req/s
+Processing Time per Request:
+  Min: 0.66s | Max: 1.67s
+  Mean: 1.15s | Median: 1.21s
+RTF (Real-Time Factor):
+  Audio file: /data/test.wav
+  Audio duration: 12.27s
+  Mean processing time: 1.15s
+  Mean RTF: 0.093
+  Min RTF: 0.054 | Max RTF: 0.136
+Audio Output:
+   Maybe there is also a benefit that can be done with the implementation of the Moods in Al-Azhar, as shown by many Indonesian people.
