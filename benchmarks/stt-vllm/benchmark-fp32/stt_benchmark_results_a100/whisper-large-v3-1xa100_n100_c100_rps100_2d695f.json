@@ -1,0 +1,29 @@
+{
+  "benchmark_name": "whisper-large-v3-1xa100_n100_c100_rps100_2d695f",
+  "model": "/workspace/whisper-large-v3",
+  "audio_file": "/data/test.wav",
+  "audio_duration_s": 12.27,
+  "num_requests": 100,
+  "max_concurrency": 100,
+  "request_rate": 100.0,
+  "results": {
+    "total": 100,
+    "success": 100,
+    "failed": 0,
+    "success_rate": 100.0,
+    "total_time_s": 6.689,
+    "throughput_rps": 14.95,
+    "processing_time": {
+      "min_s": 2.005,
+      "max_s": 5.651,
+      "mean_s": 4.068,
+      "median_s": 4.189
+    },
+    "rtf": {
+      "mean": 0.332,
+      "min": 0.163,
+      "max": 0.461
+    }
+  },
+  "sample_output": " There may also be benefits that can be enjoyed by studying the level of young sergeants at Al-Azhar, as proven by many other Indonesian students."
+}

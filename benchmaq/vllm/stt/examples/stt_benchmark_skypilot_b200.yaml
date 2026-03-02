@@ -1,0 +1,115 @@
+# STT (Speech-to-Text) Benchmark Configuration with SkyPilot
+#
+# Launches 1x B200 on RunPod via SkyPilot, runs STT benchmarks, downloads results.
+#
+# Usage:
+#   benchmaq sky bench -c examples/stt_benchmark_skypilot.yaml
+#
+# Prerequisites:
+#   1. Authenticate with SkyPilot: sky auth
+#   2. Or set environment variables for remote API server:
+#      export SKYPILOT_API_SERVER_URL="https://your-api.example.com"
+#      export SKYPILOT_API_KEY="your-api-key"
+
+# =================================================================
+# SkyPilot Task Configuration
+# =================================================================
+skypilot:
+  name: stt-benchmark-1xb200
+
+  workdir: .
+
+  resources:
+    accelerators: B200:1
+    disk_size: 200
+    # Use NVIDIA NGC container with Blackwell-compatible PyTorch
+    image_id: nvcr.io/nvidia/pytorch:25.02-py3
+
+    any_of:
+      - cloud: runpod
+
+  envs:
+    HF_TOKEN: ""  # Set your HuggingFace token here or use HF_TOKEN env var
+
+  file_mounts:
+    /data/test.wav: benchmaq/vllm/stt/examples/sample_12s.wav
+
+  setup: |
+    set -e
+
+    # Install uv
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    export PATH="$HOME/.local/bin:$PATH"
+
+    # B200 (Blackwell) requires vLLM 0.16.0+ for sm_100 support
+    # Use NGC container's system Python to preserve NVIDIA's custom PyTorch
+    pip install "vllm[audio]==0.16.0"
+    pip install "huggingface_hub[cli,hf_transfer]" hf_transfer pyyaml requests runpod paramiko scp cloudpickle tqdm
+    pip install "benchmaq @ git+https://github.com/Scicom-AI-Enterprise-Organization/llm-benchmaq.git@feature/stt-benchmark" --no-deps
+
+  run: |
+    set -e
+
+    export PATH="$HOME/.local/bin:$PATH"
+
+    # Run STT benchmarks - $config is replaced with the --config path
+    benchmaq vllm stt bench $config
+
+# =================================================================
+# Benchmark Configuration
+# =================================================================
+benchmark:
+  # ---- Whisper Large V3 ----
+  - name: whisper-large-v3-1xb200
+    engine: stt
+    model:
+      repo_id: "openai/whisper-large-v3"
+      local_dir: "/workspace/whisper-large-v3"
+    serve:
+      tensor_parallel_size: 1
+      max_model_len: 448
+      enable_prefix_caching: false
+      disable_log_requests: true
+      gpu_memory_utilization: 0.9
+      dtype: float16
+      # Blackwell sm_100 workarounds:
+      # 1. Encoder/ViT: FA2 PTX not compiled for sm_100 → use PyTorch native SDPA
+      mm_encoder_attn_backend: TORCH_SDPA
+      # 2. Decoder: FLASHINFER JIT needs GLIBCXX_3.4.32 missing in NGC container → use Triton
+      attention_backend: TRITON_ATTN
+    bench:
+      - audio_file: "/data/test.wav"
+        num_requests: 100
+        max_concurrency: 100
+        request_rate: 100
+        endpoint: "/v1/audio/transcriptions"
+        language: "en"
+    results:
+      save_result: true
+      result_dir: "./stt_benchmark_results_b200"
+
+  # ---- Whisper Large V3 Turbo ----
+  - name: whisper-large-v3-turbo-1xb200
+    engine: stt
+    model:
+      repo_id: "openai/whisper-large-v3-turbo"
+      local_dir: "/workspace/whisper-large-v3-turbo"
+    serve:
+      tensor_parallel_size: 1
+      max_model_len: 448
+      enable_prefix_caching: false
+      disable_log_requests: true
+      gpu_memory_utilization: 0.9
+      dtype: float16
+      mm_encoder_attn_backend: TORCH_SDPA
+      attention_backend: TRITON_ATTN
+    bench:
+      - audio_file: "/data/test.wav"
+        num_requests: 100
+        max_concurrency: 100
+        request_rate: 100
+        endpoint: "/v1/audio/transcriptions"
+        language: "en"
+    results:
+      save_result: true
+      result_dir: "./stt_benchmark_results_b200"

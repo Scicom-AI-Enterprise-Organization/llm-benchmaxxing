@@ -1,0 +1,29 @@
+{
+  "benchmark_name": "whisper-large-v3-turbo-1xb200_n100_c100_rps100_2d695f",
+  "model": "/workspace/whisper-large-v3-turbo",
+  "audio_file": "/data/test.wav",
+  "audio_duration_s": 12.27,
+  "num_requests": 100,
+  "max_concurrency": 100,
+  "request_rate": 100.0,
+  "results": {
+    "total": 100,
+    "success": 100,
+    "failed": 0,
+    "success_rate": 100.0,
+    "total_time_s": 2.215,
+    "throughput_rps": 45.157,
+    "processing_time": {
+      "min_s": 0.626,
+      "max_s": 1.335,
+      "mean_s": 0.977,
+      "median_s": 1.031
+    },
+    "rtf": {
+      "mean": 0.08,
+      "min": 0.051,
+      "max": 0.109
+    }
+  },
+  "sample_output": " Maybe there is also a benefit that can be done with the implementation of the Moods in Al-Azhar, as shown by many Indonesian people."
+}

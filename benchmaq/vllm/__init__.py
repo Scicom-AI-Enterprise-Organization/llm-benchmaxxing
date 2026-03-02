@@ -9,6 +9,7 @@ CLI:
 """
 
 from . import bench
+from . import stt
 from .core import VLLMServer, run_benchmark
 
-__all__ = ["bench", "VLLMServer", "run_benchmark"]
+__all__ = ["bench", "stt", "VLLMServer", "run_benchmark"]
